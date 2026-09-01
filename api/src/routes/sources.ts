@@ -1,6 +1,5 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { z } from 'zod'
-import { USER_ID_HEADER, resolveCurrentUser } from '../auth/current-user.js'
+import type { FastifyInstance, FastifyReply } from 'fastify'
+import type { z } from 'zod'
 import {
   ErrorSchema,
   USER_ID_SECURITY,
@@ -9,6 +8,15 @@ import {
 } from '../openapi.js'
 import type { UsersRepository } from '../repositories/users.repository.js'
 import type { SourcesService } from '../services/sources.service.js'
+import {
+  IdParams,
+  badRequest,
+  errorResponses,
+  fail,
+  makeCaller,
+  notFound,
+  zodMessage,
+} from './http.js'
 import {
   SourceCreateSchema,
   SourceListResponseSchema,
@@ -22,71 +30,14 @@ export interface SourcesRoutesOptions {
   users: UsersRepository
 }
 
-const IdParams = z.object({ id: z.uuid() })
-
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = '23505'
-
-/**
- * There is no `setErrorHandler` (see CLAUDE.md, Errors), so a route that
- * answers for itself must reproduce Fastify's default body by hand. Two
- * validators run against every body — Ajv from the published JSON Schema, then
- * Zod for the rules JSON Schema cannot express — and if their 400s had
- * different shapes the documented one would be true only half the time.
- */
-function fail(
-  reply: FastifyReply,
-  statusCode: number,
-  error: string,
-  message: string,
-) {
-  return reply.code(statusCode).send({ statusCode, error, message })
-}
-
-function badRequest(reply: FastifyReply, message: string) {
-  return fail(reply, 400, 'Bad Request', message)
-}
-
-function notFound(reply: FastifyReply, message = 'No such source') {
-  return fail(reply, 404, 'Not Found', message)
-}
-
-/** Flattens a ZodError into one line, so the message field stays a string. */
-function zodMessage(error: z.ZodError): string {
-  return error.issues
-    .map((issue) => `${issue.path.join('.') || '(body)'}: ${issue.message}`)
-    .join('; ')
-}
-
-const errorResponses = {
-  400: ErrorSchema,
-  404: ErrorSchema,
-}
 
 export async function sourcesRoutes(
   app: FastifyInstance,
   { service, users }: SourcesRoutesOptions,
 ): Promise<void> {
-  /**
-   * Resolves the caller or answers the request. Returns null when it has
-   * already replied, so every handler starts with the same three lines.
-   */
-  async function caller(
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<string | null> {
-    const result = await resolveCurrentUser(
-      request.headers[USER_ID_HEADER],
-      users,
-    )
-    if (result.ok) return result.userId
-    if (result.status === 400) {
-      await badRequest(reply, result.message)
-    } else {
-      await notFound(reply, result.message)
-    }
-    return null
-  }
+  const caller = makeCaller(users)
 
   app.get(
     '/sources',
@@ -129,7 +80,7 @@ export async function sourcesRoutes(
       const source = await service.get(userId, id)
       // A source owned by somebody else is indistinguishable from one that
       // does not exist. A 403 would confirm the id is real.
-      if (!source) return notFound(reply)
+      if (!source) return notFound(reply, 'No such source')
       return source
     },
   )
@@ -205,7 +156,7 @@ export async function sourcesRoutes(
       if (!parsed.success) return badRequest(reply, zodMessage(parsed.error))
       try {
         const source = await service.update(userId, id, parsed.data)
-        if (!source) return notFound(reply)
+        if (!source) return notFound(reply, 'No such source')
         return source
       } catch (error) {
         return conflictOr(reply, error)
@@ -220,7 +171,8 @@ export async function sourcesRoutes(
         tags: ['sources'],
         summary: 'Delete one of your sources',
         description:
-          'Soft — the row is retained so its postings keep resolving.',
+          'Soft — the row is retained so the foreign key stays intact, but ' +
+          'its postings are no longer returned by GET /postings.',
         security: USER_ID_SECURITY,
         params: jsonSchema(IdParams),
         // Fastify skips payload serialization for a 204 regardless of what
@@ -235,7 +187,8 @@ export async function sourcesRoutes(
       // Ajv already validated `id` against `params: jsonSchema(IdParams)`
       // above; a second parse here would be dead code.
       const { id } = request.params as z.infer<typeof IdParams>
-      if (!(await service.remove(userId, id))) return notFound(reply)
+      if (!(await service.remove(userId, id)))
+        return notFound(reply, 'No such source')
       return reply.code(204).send()
     },
   )

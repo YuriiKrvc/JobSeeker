@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-`api/` has a sources CRUD API in front of Postgres; nothing fetches a job board
-yet. Its commands, layout, and layering rules live in **`api/CLAUDE.md`**.
+`api/` has the sources CRUD API, the ingestion pipeline, and `GET /postings` in
+front of Postgres. Scraping runs only on request — there is no schedule yet.
+Its commands, layout, and layering rules live in **`api/CLAUDE.md`**.
 `frontend/` is still an empty directory; what is said about it here is a
 decision, not an observation.
 
@@ -66,6 +67,12 @@ three results. See
 What still holds either way: any collapsing is a job for the merged result set
 after normalization, never for an individual adapter. An adapter cannot see the
 other two boards and so cannot make that call.
+
+The adapter is two phases — list, then fetch each detail page — because the
+title blocklist has to run before a detail fetch and an already-stored posting
+must never be re-fetched. Those decisions need the database, so the ingestion
+service drives the loop and the adapter stays a pure HTML reader. See
+`docs/superpowers/specs/2026-09-01-job-ingestion-design.md`.
 
 ## Commands
 

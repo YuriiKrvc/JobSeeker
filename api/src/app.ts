@@ -1,17 +1,27 @@
 import Fastify, { type FastifyInstance } from 'fastify'
+import { fetchText } from './adapters/fetch-text.js'
 import { config } from './config.js'
 import { registerDocs } from './openapi.js'
+import { createPostingsRepository } from './repositories/postings.repository.js'
 import { createSourcesRepository } from './repositories/sources.repository.js'
 import { createUsersRepository } from './repositories/users.repository.js'
 import { healthRoutes } from './routes/health.js'
+import { ingestRoutes } from './routes/ingest.js'
+import { postingsRoutes } from './routes/postings.js'
 import { sourcesRoutes } from './routes/sources.js'
+import { createIngestionService } from './services/ingestion.service.js'
+import { createPostingsService } from './services/postings.service.js'
 import { createSourcesService } from './services/sources.service.js'
 import type { UsersRepository } from './repositories/users.repository.js'
+import type { IngestionService } from './services/ingestion.service.js'
+import type { PostingsService } from './services/postings.service.js'
 import type { SourcesService } from './services/sources.service.js'
 
 export interface AppDeps {
   sources: SourcesService
+  postings: PostingsService
   users: UsersRepository
+  ingestion: IngestionService
 }
 
 /**
@@ -19,9 +29,21 @@ export interface AppDeps {
  * scope so that a test passing its own fakes never constructs them.
  */
 function realDeps(): AppDeps {
+  const users = createUsersRepository()
+  const sourcesRepo = createSourcesRepository()
+  const postingsRepo = createPostingsRepository()
   return {
-    sources: createSourcesService(createSourcesRepository()),
-    users: createUsersRepository(),
+    sources: createSourcesService(sourcesRepo),
+    postings: createPostingsService(postingsRepo),
+    users,
+    // `fetchText` is injected rather than imported by the service, so the unit
+    // suite never opens a socket.
+    ingestion: createIngestionService({
+      sources: sourcesRepo,
+      postings: postingsRepo,
+      users,
+      fetchText,
+    }),
   }
 }
 
@@ -40,6 +62,8 @@ export function buildApp(deps: AppDeps = realDeps()): FastifyInstance {
 
   app.register(healthRoutes)
   app.register(sourcesRoutes, { service: deps.sources, users: deps.users })
+  app.register(ingestRoutes, { service: deps.ingestion, users: deps.users })
+  app.register(postingsRoutes, { service: deps.postings, users: deps.users })
 
   return app
 }

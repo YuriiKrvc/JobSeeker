@@ -7,6 +7,8 @@ const UNKNOWN = '11111111-1111-4111-8111-111111111111'
 
 const users: UsersRepository = {
   exists: (id) => Promise.resolve(id === KNOWN),
+  findBlocklists: () =>
+    Promise.resolve({ blockedTitleWords: [], blockedDescriptionWords: [] }),
 }
 
 describe('resolveCurrentUser', () => {
@@ -52,6 +54,8 @@ describe('resolveCurrentUser', () => {
         called = true
         return Promise.resolve(true)
       },
+      findBlocklists: () =>
+        Promise.resolve({ blockedTitleWords: [], blockedDescriptionWords: [] }),
     }
     await resolveCurrentUser('nope', spy)
     expect(called).toBe(false)

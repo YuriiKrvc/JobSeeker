@@ -6,11 +6,13 @@ Postgres container). This file covers only `api/`.
 
 ## Status
 
-The sources API is built: three tables (`users`, `sources`, `postings`), CRUD
-at `/sources`, and an OpenAPI document at `/docs`. **Nothing fetches any job
-board yet** — `postings` is created but written by nothing. The generic
-adapter, the ingestion pipeline, the `POST` trigger and the 30-minute schedule
-are the next slice.
+The sources API and the ingestion pipeline are both built: three tables, CRUD
+at `/sources`, a generic HTML adapter, `POST /sources/:id/ingest` and
+`POST /ingest`, `GET /postings`, and an OpenAPI document at `/docs`.
+
+**Nothing runs on a schedule.** Scraping happens only when someone calls an
+ingest endpoint. The 30-minute `@fastify/schedule` job is the next slice; it
+must call `createIngestionService(...)` exactly as the routes do.
 
 ## Commands
 
@@ -104,6 +106,44 @@ it with `app.inject()` without binding a port. Keep it that way.
 
 The one exception is `routes/health.ts`, which pings the database directly.
 It is an infrastructure probe, not domain logic — do not use it as precedent.
+
+## The adapter is a fourth layer
+
+`routes → services → repositories` still holds, and `src/adapters/` sits beside
+it as an outbound driver. Only `ingestion.service.ts` touches it.
+
+- `fetch-text.ts` is the one place this project makes an outbound HTTP request.
+  It is **injected**, never imported by a service, so no unit test opens a
+  socket.
+- `html-source.adapter.ts` knows HTML and selectors. It performs no SQL, reads
+  no blocklist, and decides nothing about whether a posting is worth fetching.
+- It is **two functions, not one**, and this is load-bearing: the title
+  blocklist must run before a detail page is fetched, and an already-stored
+  posting must never be re-fetched. Both decisions need the blocklists and the
+  database. The service therefore drives the loop and calls `fetchDetail` only
+  for survivors — which also makes the delay and the item cap the service's to
+  enforce.
+
+## Ingestion caveats worth knowing
+
+- **Runs are synchronous.** Default caps mean ~100 seconds per source, and
+  `POST /ingest` is sequential. A proxy with a 60s read timeout will cut the
+  connection while the run completes server-side.
+- **A stored blocked posting is never re-examined.** Removing a blocklist word
+  does not un-block existing rows; there is no un-block path. Delete them.
+- **`postedAt` is null unless `postedAtRaw` parsed as a date.** "3 days ago"
+  keeps the raw string and nothing else. Relative-date parsing is out of scope.
+- **Blocklist words are tokens, split on everything but letters, digits, `+`
+  and `#`.** Block `net`, not `.net`; `node`, not `node.js`.
+- **Two overlapping runs of one source over-report `created`.** The rows are
+  right, the counter is not. Relevant once the scheduler exists.
+- **A run whose listing page loaded but whose every detail page failed still
+  reads as healthy.** `last_success_at` advances and `last_error` is cleared
+  whenever the _listing_ fetch succeeded, per the spec's rule that individual
+  item failures do not mark a run failed. So a board that suddenly 503s every
+  detail page shows a clean `GET /sources` and hides the breakage in each
+  run's `errors[]`. Watch the run summary or the postings count, not just the
+  health columns.
 
 ## Errors
 
