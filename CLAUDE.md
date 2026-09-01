@@ -2,14 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status: pre-scaffold
+## Status
 
-`api/` and `frontend/` are empty directories. There is no source, no
-`package.json`, no schema. Everything below is a **decision**, not an
-observation of existing code — nothing here has been built or verified.
+`api/` is scaffolded — it boots and reaches Postgres, but has no domain code
+yet. Its commands, layout, and layering rules live in **`api/CLAUDE.md`**.
+`frontend/` is still an empty directory; what is said about it here is a
+decision, not an observation.
 
-Once the scaffold exists, replace the Commands section with commands you have
-actually run, and rewrite Architecture from the code rather than from this file.
+Each subproject owns its own `CLAUDE.md`, and Claude Code loads them
+automatically when it touches files in that directory. There is no import
+linking them on purpose — this file stays cross-cutting, so API detail belongs
+in `api/CLAUDE.md`, not here.
 
 ## What it is
 
@@ -36,10 +39,13 @@ Deliberately **not** in the first version:
 
 - relevance scoring or AI matching against a CV
 - application tracking (applied / rejected / interviewing)
-- alerts, notifications, or a scheduler
+- alerts and notifications
 
 These are excluded on purpose, not forgotten. Do not add them because they seem
 like the obvious next step — ask first.
+
+A **30-minute ingestion schedule is now in scope** (it was excluded here
+originally). It runs in the API process; see `api/CLAUDE.md`.
 
 ## Architecture
 
@@ -53,22 +59,36 @@ adapter may assume HTML, or JSON, or a browser, or a rate limit shape. Adding a
 source should mean adding one file and registering it, and touching nothing
 else.
 
-Deduplication runs **after** normalization, across the merged result set — not
-inside individual adapters. The same job posted to three boards is one posting;
-an adapter cannot see the other two and so cannot make that call.
+**Duplicate handling is unsettled.** The original rule here was that one job on
+three boards is one posting. The current instruction is the opposite: keep one
+row per source and do not collapse across sources, since a re-seen posting from
+the same source is assumed unchanged and is simply ignored. What has *not* been
+decided is whether the API groups those rows into a single result for the
+frontend. Until that is answered, the postings table is not written — see the
+Open decisions section of `api/CLAUDE.md`.
+
+What still holds either way: any collapsing is a job for the merged result set
+after normalization, never for an individual adapter. An adapter cannot see the
+other two boards and so cannot make that call.
 
 ## Commands
 
 Postgres runs from `docker-compose.yml` at the project root, on host port
-**5434** — 5432 and 5433 are already taken by other projects in `~/www`:
+**5432**. This machine has no `docker compose` plugin, so use the standalone
+binary:
 
 ```bash
-docker compose up -d postgres   # postgres://jobseeker:jobseeker@localhost:5434/jobseeker
+docker-compose up -d postgres   # postgres://jobseeker:jobseeker@localhost:5432/jobseeker
 ```
 
-The rest is intended shape, not yet verified — neither of these runs today:
+For the API, see `api/CLAUDE.md`; the short version:
 
 ```bash
 cd api && npm install && npm run dev
-cd frontend && npm install && npm run dev
+```
+
+The frontend does not exist yet:
+
+```bash
+cd frontend && npm install && npm run dev   # intended shape, not yet real
 ```

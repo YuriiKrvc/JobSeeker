@@ -21,6 +21,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@fastify/swagger": "^9.8.1",
+    "@fastify/swagger-ui": "^6.1.1",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.1",
     "postgres": "^3.4.9",

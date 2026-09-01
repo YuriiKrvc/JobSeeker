@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import { config } from './config.js'
+import { registerDocs } from './openapi.js'
 import { healthRoutes } from './routes/health.js'
 
 /**
@@ -8,6 +9,9 @@ import { healthRoutes } from './routes/health.js'
  */
 export function buildApp(): FastifyInstance {
   const app = Fastify({ logger: { level: config.LOG_LEVEL } })
+
+  // Before the routes: swagger only documents what is registered after it.
+  registerDocs(app)
 
   app.register(healthRoutes)
 
