@@ -33,8 +33,12 @@ export const users = pgTable('users', {
   // user-level setting yet, so a second table would be a join earning nothing.
   blockedTitleWords: wordList('blocked_title_words'),
   blockedDescriptionWords: wordList('blocked_description_words'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 })
 
 export const sources = pgTable(
@@ -76,8 +80,12 @@ export const sources = pgTable(
     lastError: text('last_error'),
 
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     // Partial, on two counts. Scoped to the user because a global constraint
@@ -112,8 +120,12 @@ export const postings = pgTable(
     postedAt: timestamp('posted_at', { withTimezone: true }),
     /** Null means visible; otherwise the blocklist word that matched. */
     blockedBy: text('blocked_by'),
-    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
-    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [unique('postings_source_url_uniq').on(table.sourceId, table.url)],
 )

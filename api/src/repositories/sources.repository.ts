@@ -53,13 +53,18 @@ export interface SourcesRepository {
   list(userId: string): Promise<SourceRow[]>
   findById(userId: string, id: string): Promise<SourceRow | null>
   create(input: SourceInsert): Promise<SourceRow>
-  update(userId: string, id: string, patch: SourceUpdate): Promise<SourceRow | null>
+  update(
+    userId: string,
+    id: string,
+    patch: SourceUpdate,
+  ): Promise<SourceRow | null>
   /** True when a live row was marked deleted; false when there was none. */
   softDelete(userId: string, id: string): Promise<boolean>
 }
 
 /** Every query carries these two: the caller's id, and "not soft-deleted". */
-const live = (userId: string) => and(eq(sources.userId, userId), isNull(sources.deletedAt))
+const live = (userId: string) =>
+  and(eq(sources.userId, userId), isNull(sources.deletedAt))
 
 export function createSourcesRepository(): SourcesRepository {
   return {

@@ -26,14 +26,22 @@ const word = z.string().min(1).max(100)
  * top of these same field schemas.
  */
 const fields = {
-  name: z.string().min(1).max(200).describe('Display label. Unique among your live sources.'),
+  name: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('Display label. Unique among your live sources.'),
   listingUrl: z
     .url({ protocol: /^https?$/ })
     .max(2000)
-    .describe('Page listing the vacancies. Must be http or https — the published schema only says "uri".'),
+    .describe(
+      'Page listing the vacancies. Must be http or https — the published schema only says "uri".',
+    ),
   enabled: z.boolean(),
 
-  itemSelector: selector.describe('Matches once per vacancy on the listing page.'),
+  itemSelector: selector.describe(
+    'Matches once per vacancy on the listing page.',
+  ),
   titleSelector: selector.describe('Relative to an item.'),
   titleAttr: attr.nullable().describe('Null takes the element text.'),
   detailUrlSelector: selector,

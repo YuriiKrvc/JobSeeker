@@ -22,15 +22,27 @@ export async function resolveCurrentUser(
   users: UsersRepository,
 ): Promise<CurrentUser> {
   if (headerValue === undefined) {
-    return { ok: false, status: 400, message: `Missing ${USER_ID_HEADER} header` }
+    return {
+      ok: false,
+      status: 400,
+      message: `Missing ${USER_ID_HEADER} header`,
+    }
   }
   // A repeated header is ambiguous; guessing which one is meant would be worse
   // than refusing.
   if (Array.isArray(headerValue)) {
-    return { ok: false, status: 400, message: `Repeated ${USER_ID_HEADER} header` }
+    return {
+      ok: false,
+      status: 400,
+      message: `Repeated ${USER_ID_HEADER} header`,
+    }
   }
   if (!uuid.safeParse(headerValue).success) {
-    return { ok: false, status: 400, message: `${USER_ID_HEADER} must be a uuid` }
+    return {
+      ok: false,
+      status: 400,
+      message: `${USER_ID_HEADER} must be a uuid`,
+    }
   }
   // Checked rather than trusted: without this a typo'd id would quietly return
   // an empty list instead of failing.

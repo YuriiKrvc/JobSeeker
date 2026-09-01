@@ -11,23 +11,38 @@ const users: UsersRepository = {
 
 describe('resolveCurrentUser', () => {
   it('resolves a known user', async () => {
-    expect(await resolveCurrentUser(KNOWN, users)).toEqual({ ok: true, userId: KNOWN })
+    expect(await resolveCurrentUser(KNOWN, users)).toEqual({
+      ok: true,
+      userId: KNOWN,
+    })
   })
 
   it('400s when the header is absent', async () => {
-    expect(await resolveCurrentUser(undefined, users)).toMatchObject({ ok: false, status: 400 })
+    expect(await resolveCurrentUser(undefined, users)).toMatchObject({
+      ok: false,
+      status: 400,
+    })
   })
 
   it('400s when the header is not a uuid', async () => {
-    expect(await resolveCurrentUser('not-a-uuid', users)).toMatchObject({ ok: false, status: 400 })
+    expect(await resolveCurrentUser('not-a-uuid', users)).toMatchObject({
+      ok: false,
+      status: 400,
+    })
   })
 
   it('400s on a repeated header rather than picking one', async () => {
-    expect(await resolveCurrentUser([KNOWN, UNKNOWN], users)).toMatchObject({ ok: false, status: 400 })
+    expect(await resolveCurrentUser([KNOWN, UNKNOWN], users)).toMatchObject({
+      ok: false,
+      status: 400,
+    })
   })
 
   it('404s on a well-formed uuid naming no user', async () => {
-    expect(await resolveCurrentUser(UNKNOWN, users)).toMatchObject({ ok: false, status: 404 })
+    expect(await resolveCurrentUser(UNKNOWN, users)).toMatchObject({
+      ok: false,
+      status: 404,
+    })
   })
 
   it('does not look up a malformed id', async () => {

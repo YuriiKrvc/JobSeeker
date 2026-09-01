@@ -33,7 +33,8 @@ function fakeRepo(): SourcesRepository {
   const find = (userId: string, id: string) =>
     rows.find((r) => r.id === id && r.userId === userId && !r.deletedAt)
   return {
-    list: (userId) => Promise.resolve(rows.filter((r) => r.userId === userId && !r.deletedAt)),
+    list: (userId) =>
+      Promise.resolve(rows.filter((r) => r.userId === userId && !r.deletedAt)),
     findById: (userId, id) => Promise.resolve(find(userId, id) ?? null),
     create: (input: SourceInsert) => {
       const now = new Date('2026-09-01T10:00:00.000Z')
@@ -80,16 +81,22 @@ function fakeRepoThatThrows(error: Error): SourcesRepository {
 
 const uniqueViolation = () =>
   Object.assign(new Error('duplicate key value violates unique constraint'), {
-    cause: Object.assign(new Error('duplicate key value violates unique constraint'), {
-      code: '23505',
-      constraint_name: 'sources_user_name_uniq',
-    }),
+    cause: Object.assign(
+      new Error('duplicate key value violates unique constraint'),
+      {
+        code: '23505',
+        constraint_name: 'sources_user_name_uniq',
+      },
+    ),
   })
 
 // Initialized at declaration, not in beforeEach: `noUncheckedIndexedAccess`
 // and strict mode reject a `let app: FastifyInstance` that beforeEach reads
 // before assigning.
-let app: FastifyInstance = buildApp({ sources: createSourcesService(fakeRepo()), users })
+let app: FastifyInstance = buildApp({
+  sources: createSourcesService(fakeRepo()),
+  users,
+})
 
 beforeEach(async () => {
   await app.close()
@@ -102,7 +109,10 @@ afterAll(async () => {
 
 const as = (userId: string) => ({ 'x-user-id': userId })
 
-async function createFor(userId: string, overrides: Record<string, unknown> = {}) {
+async function createFor(
+  userId: string,
+  overrides: Record<string, unknown> = {},
+) {
   const response = await app.inject({
     method: 'POST',
     url: '/sources',
@@ -116,23 +126,40 @@ describe('X-User-Id handling', () => {
   it('400s without the header', async () => {
     const response = await app.inject({ method: 'GET', url: '/sources' })
     expect(response.statusCode).toBe(400)
-    expect(Object.keys(response.json<object>()).sort()).toEqual(['error', 'message', 'statusCode'])
+    expect(Object.keys(response.json<object>()).sort()).toEqual([
+      'error',
+      'message',
+      'statusCode',
+    ])
   })
 
   it('400s on a non-uuid header', async () => {
-    const response = await app.inject({ method: 'GET', url: '/sources', headers: as('nope') })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/sources',
+      headers: as('nope'),
+    })
     expect(response.statusCode).toBe(400)
   })
 
   it('404s on a uuid naming no user', async () => {
-    const response = await app.inject({ method: 'GET', url: '/sources', headers: as(GHOST) })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/sources',
+      headers: as(GHOST),
+    })
     expect(response.statusCode).toBe(404)
   })
 })
 
 describe('POST /sources', () => {
   it('creates and returns 201 without userId in the body', async () => {
-    const response = await app.inject({ method: 'POST', url: '/sources', headers: as(ALICE), payload: body })
+    const response = await app.inject({
+      method: 'POST',
+      url: '/sources',
+      headers: as(ALICE),
+      payload: body,
+    })
     expect(response.statusCode).toBe(201)
     const created = response.json<Record<string, unknown>>()
     expect(created).not.toHaveProperty('userId')
@@ -148,7 +175,11 @@ describe('POST /sources', () => {
       payload: { ...body, listingUrl: 'ftp://example.com' },
     })
     expect(response.statusCode).toBe(400)
-    expect(Object.keys(response.json<object>()).sort()).toEqual(['error', 'message', 'statusCode'])
+    expect(Object.keys(response.json<object>()).sort()).toEqual([
+      'error',
+      'message',
+      'statusCode',
+    ])
   })
 
   it('400s on a missing required selector, in the same body shape as a Zod-only rejection', async () => {
@@ -163,7 +194,11 @@ describe('POST /sources', () => {
     // This one is rejected by Ajv against the published JSON Schema (a
     // required property is missing) rather than by Zod — the pair above only
     // ever exercises Zod against itself.
-    expect(Object.keys(response.json<object>()).sort()).toEqual(['error', 'message', 'statusCode'])
+    expect(Object.keys(response.json<object>()).sort()).toEqual([
+      'error',
+      'message',
+      'statusCode',
+    ])
   })
 
   it('ignores a userId sent in the body; the header is the only source of ownership', async () => {
@@ -179,11 +214,23 @@ describe('POST /sources', () => {
     expect(response.statusCode).toBe(201)
     const created = response.json<{ id: string }>()
 
-    const asAlice = await app.inject({ method: 'GET', url: '/sources', headers: as(ALICE) })
-    expect(asAlice.json<{ sources: { id: string }[] }>().sources.map((s) => s.id)).toContain(created.id)
+    const asAlice = await app.inject({
+      method: 'GET',
+      url: '/sources',
+      headers: as(ALICE),
+    })
+    expect(
+      asAlice.json<{ sources: { id: string }[] }>().sources.map((s) => s.id),
+    ).toContain(created.id)
 
-    const asBob = await app.inject({ method: 'GET', url: '/sources', headers: as(BOB) })
-    expect(asBob.json<{ sources: { id: string }[] }>().sources.map((s) => s.id)).not.toContain(created.id)
+    const asBob = await app.inject({
+      method: 'GET',
+      url: '/sources',
+      headers: as(BOB),
+    })
+    expect(
+      asBob.json<{ sources: { id: string }[] }>().sources.map((s) => s.id),
+    ).not.toContain(created.id)
   })
 })
 
@@ -191,15 +238,28 @@ describe('GET /sources', () => {
   it('returns only the caller-owned sources', async () => {
     await createFor(ALICE)
     await createFor(BOB, { name: 'Bob Board' })
-    const response = await app.inject({ method: 'GET', url: '/sources', headers: as(ALICE) })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/sources',
+      headers: as(ALICE),
+    })
     expect(response.statusCode).toBe(200)
     expect(response.json<{ sources: unknown[] }>().sources).toHaveLength(1)
   })
 
   it('includes disabled sources so they can be re-enabled', async () => {
     const created = await createFor(ALICE)
-    await app.inject({ method: 'PATCH', url: `/sources/${created.id}`, headers: as(ALICE), payload: { enabled: false } })
-    const response = await app.inject({ method: 'GET', url: '/sources', headers: as(ALICE) })
+    await app.inject({
+      method: 'PATCH',
+      url: `/sources/${created.id}`,
+      headers: as(ALICE),
+      payload: { enabled: false },
+    })
+    const response = await app.inject({
+      method: 'GET',
+      url: '/sources',
+      headers: as(ALICE),
+    })
     expect(response.json<{ sources: unknown[] }>().sources).toHaveLength(1)
   })
 })
@@ -207,7 +267,11 @@ describe('GET /sources', () => {
 describe('ownership', () => {
   it('404s reading another user-owned source', async () => {
     const created = await createFor(ALICE)
-    const response = await app.inject({ method: 'GET', url: `/sources/${created.id}`, headers: as(BOB) })
+    const response = await app.inject({
+      method: 'GET',
+      url: `/sources/${created.id}`,
+      headers: as(BOB),
+    })
     expect(response.statusCode).toBe(404)
   })
 
@@ -224,7 +288,11 @@ describe('ownership', () => {
 
   it('404s deleting another user-owned source', async () => {
     const created = await createFor(ALICE)
-    const response = await app.inject({ method: 'DELETE', url: `/sources/${created.id}`, headers: as(BOB) })
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/sources/${created.id}`,
+      headers: as(BOB),
+    })
     expect(response.statusCode).toBe(404)
   })
 })
@@ -257,8 +325,24 @@ describe('PATCH and DELETE', () => {
 
   it('deletes with 204 and then 404s', async () => {
     const created = await createFor(ALICE)
-    expect((await app.inject({ method: 'DELETE', url: `/sources/${created.id}`, headers: as(ALICE) })).statusCode).toBe(204)
-    expect((await app.inject({ method: 'GET', url: `/sources/${created.id}`, headers: as(ALICE) })).statusCode).toBe(404)
+    expect(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: `/sources/${created.id}`,
+          headers: as(ALICE),
+        })
+      ).statusCode,
+    ).toBe(204)
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/sources/${created.id}`,
+          headers: as(ALICE),
+        })
+      ).statusCode,
+    ).toBe(404)
   })
 })
 
@@ -267,7 +351,9 @@ describe('openapi document', () => {
     const doc = (await app.inject({ method: 'GET', url: '/docs/json' })).json<{
       paths: Record<string, Record<string, { security?: unknown }>>
     }>()
-    expect(Object.keys(doc.paths)).toEqual(expect.arrayContaining(['/sources', '/sources/{id}']))
+    expect(Object.keys(doc.paths)).toEqual(
+      expect.arrayContaining(['/sources', '/sources/{id}']),
+    )
     expect(doc.paths['/sources']?.post?.security).toEqual([{ userId: [] }])
   })
 })
@@ -289,7 +375,11 @@ describe('POST /sources conflict handling', () => {
       expect(response.json<{ message: string }>().message).toBe(
         'You already have a source with that name',
       )
-      expect(Object.keys(response.json<object>()).sort()).toEqual(['error', 'message', 'statusCode'])
+      expect(Object.keys(response.json<object>()).sort()).toEqual([
+        'error',
+        'message',
+        'statusCode',
+      ])
     } finally {
       await conflictApp.close()
     }

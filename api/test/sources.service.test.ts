@@ -35,27 +35,37 @@ function rowFrom(insert: SourceInsert, id: string): SourceRow {
 }
 
 /** An in-memory stand-in that enforces the same ownership rule as the real one. */
-function fakeRepo(seed: SourceRow[] = []): SourcesRepository & { rows: SourceRow[] } {
+function fakeRepo(
+  seed: SourceRow[] = [],
+): SourcesRepository & { rows: SourceRow[] } {
   const rows = [...seed]
   let next = seed.length
   return {
     rows,
-    list: (userId) => Promise.resolve(rows.filter((r) => r.userId === userId && !r.deletedAt)),
+    list: (userId) =>
+      Promise.resolve(rows.filter((r) => r.userId === userId && !r.deletedAt)),
     findById: (userId, id) =>
-      Promise.resolve(rows.find((r) => r.id === id && r.userId === userId && !r.deletedAt) ?? null),
+      Promise.resolve(
+        rows.find((r) => r.id === id && r.userId === userId && !r.deletedAt) ??
+          null,
+      ),
     create: (input) => {
       const row = rowFrom(input, `id-${String(++next)}`)
       rows.push(row)
       return Promise.resolve(row)
     },
     update: (userId, id, patch: SourceUpdate) => {
-      const row = rows.find((r) => r.id === id && r.userId === userId && !r.deletedAt)
+      const row = rows.find(
+        (r) => r.id === id && r.userId === userId && !r.deletedAt,
+      )
       if (!row) return Promise.resolve(null)
       Object.assign(row, patch)
       return Promise.resolve(row)
     },
     softDelete: (userId, id) => {
-      const row = rows.find((r) => r.id === id && r.userId === userId && !r.deletedAt)
+      const row = rows.find(
+        (r) => r.id === id && r.userId === userId && !r.deletedAt,
+      )
       if (!row) return Promise.resolve(false)
       row.deletedAt = new Date()
       return Promise.resolve(true)
@@ -103,7 +113,9 @@ describe('createSourcesService', () => {
 
   it('normalizes words on update too', async () => {
     const created = await service.create(ALICE, validInput)
-    const updated = await service.update(ALICE, created.id, { blockedTitleWords: [' Go '] })
+    const updated = await service.update(ALICE, created.id, {
+      blockedTitleWords: [' Go '],
+    })
     expect(updated?.blockedTitleWords).toEqual(['go'])
   })
 
@@ -139,7 +151,9 @@ describe('createSourcesService', () => {
 
   it('passes only the keys present in a patch', async () => {
     const created = await service.create(ALICE, validInput)
-    const updated = await service.update(ALICE, created.id, { companySelector: null })
+    const updated = await service.update(ALICE, created.id, {
+      companySelector: null,
+    })
     expect(updated?.companySelector).toBeNull()
     expect(updated?.name).toBe('Example Board')
   })

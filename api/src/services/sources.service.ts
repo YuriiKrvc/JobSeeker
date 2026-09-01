@@ -15,7 +15,9 @@ import type {
  * and that schema has to reach the OpenAPI document.
  */
 function normalizeWords(words: string[]): string[] {
-  return words.map((word) => word.trim().toLowerCase()).filter((word) => word.length > 0)
+  return words
+    .map((word) => word.trim().toLowerCase())
+    .filter((word) => word.length > 0)
 }
 
 /**
@@ -69,7 +71,9 @@ export function createSourcesService(repo: SourcesRepository) {
         normalized.blockedTitleWords = normalizeWords(patch.blockedTitleWords)
       }
       if (patch.blockedDescriptionWords) {
-        normalized.blockedDescriptionWords = normalizeWords(patch.blockedDescriptionWords)
+        normalized.blockedDescriptionWords = normalizeWords(
+          patch.blockedDescriptionWords,
+        )
       }
       const row = await repo.update(userId, id, normalized)
       return row ? toResponse(row) : null

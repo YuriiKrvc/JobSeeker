@@ -34,7 +34,12 @@ const UNIQUE_VIOLATION = '23505'
  * Zod for the rules JSON Schema cannot express — and if their 400s had
  * different shapes the documented one would be true only half the time.
  */
-function fail(reply: FastifyReply, statusCode: number, error: string, message: string) {
+function fail(
+  reply: FastifyReply,
+  statusCode: number,
+  error: string,
+  message: string,
+) {
   return reply.code(statusCode).send({ statusCode, error, message })
 }
 
@@ -73,8 +78,14 @@ export async function sourcesRoutes(
    * Resolves the caller or answers the request. Returns null when it has
    * already replied, so every handler starts with the same three lines.
    */
-  async function caller(request: FastifyRequest, reply: FastifyReply): Promise<string | null> {
-    const result = await resolveCurrentUser(request.headers[USER_ID_HEADER], users)
+  async function caller(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<string | null> {
+    const result = await resolveCurrentUser(
+      request.headers[USER_ID_HEADER],
+      users,
+    )
     if (result.ok) return result.userId
     if (result.status === 400) {
       await badRequest(reply, result.message)
@@ -102,7 +113,10 @@ export async function sourcesRoutes(
         summary: 'List your sources',
         description: 'Excludes deleted sources; includes disabled ones.',
         security: USER_ID_SECURITY,
-        response: { 200: jsonSchema(SourceListResponseSchema), ...errorResponses },
+        response: {
+          200: jsonSchema(SourceListResponseSchema),
+          ...errorResponses,
+        },
       },
     },
     async (request, reply) => {
@@ -164,7 +178,9 @@ export async function sourcesRoutes(
       const parsed = SourceCreateSchema.safeParse(request.body)
       if (!parsed.success) return badRequest(reply, zodMessage(parsed.error))
       try {
-        return await reply.code(201).send(await service.create(userId, parsed.data))
+        return await reply
+          .code(201)
+          .send(await service.create(userId, parsed.data))
       } catch (error) {
         return conflictOr(reply, error)
       }
@@ -218,7 +234,8 @@ export async function sourcesRoutes(
       schema: {
         tags: ['sources'],
         summary: 'Delete one of your sources',
-        description: 'Soft — the row is retained so its postings keep resolving.',
+        description:
+          'Soft — the row is retained so its postings keep resolving.',
         security: USER_ID_SECURITY,
         params: jsonSchema(IdParams),
         // No 204 entry: a declared schema for an empty body makes
@@ -243,7 +260,12 @@ export async function sourcesRoutes(
    */
   function conflictOr(reply: FastifyReply, error: unknown) {
     if (pgErrorCode(error) !== UNIQUE_VIOLATION) throw error
-    return fail(reply, 409, 'Conflict', 'You already have a source with that name')
+    return fail(
+      reply,
+      409,
+      'Conflict',
+      'You already have a source with that name',
+    )
   }
 }
 
