@@ -9,7 +9,7 @@ import type {
   SourcesRepository,
 } from '../src/repositories/sources.repository.js'
 import type { UsersRepository } from '../src/repositories/users.repository.js'
-import { sourceRow } from './html-source.adapter.test.js'
+import { sourceRow } from './fixtures.js'
 
 const ALICE = '00000000-0000-4000-8000-00000000000a'
 
