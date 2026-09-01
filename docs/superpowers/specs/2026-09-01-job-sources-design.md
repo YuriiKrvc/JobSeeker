@@ -253,20 +253,34 @@ There is **no PUT.** Editing is a partial `PATCH` — a source has roughly twent
 fields, and requiring all of them to change one selector is a bad contract.
 `enabled` is an ordinary field in that body, so no separate toggle route.
 
-Two Zod schemas in `src/routes/sources.schema.ts`:
+### Wire format
 
-- `SourceCreateSchema` — required: `name`, `listing_url`, `item_selector`,
-  `title_selector`, `detail_url_selector`, `description_selector`. Optional with
-  defaults: `detail_url_attr` (`'href'`), `enabled` (true), both word arrays
-  (`[]`), all three politeness fields. `user_id` is **not** a member.
+**camelCase on the wire, snake_case in the database.** `listingUrl`,
+`itemSelector`, `blockedTitleWords`. Drizzle already maps column names to
+property names, so this costs nothing but does mean a column and its JSON field
+have different names — translate when reading SQL by hand.
+
+The response shape omits `userId` entirely: every source a caller can see is
+already theirs, so returning it says nothing. It also omits nothing else — the
+health columns and timestamps are all included, since diagnosing a broken
+selector is the main reason to read a source back.
+
+### Schemas
+
+Three Zod schemas in `src/routes/sources.schema.ts`:
+
+- `SourceCreateSchema` — required: `name`, `listingUrl`, `itemSelector`,
+  `titleSelector`, `detailUrlSelector`, `descriptionSelector`. Optional with
+  defaults: `detailUrlAttr` (`'href'`), `enabled` (true), both word arrays
+  (`[]`), all three politeness fields. `userId` is **not** a member.
 - `SourceUpdateSchema` — `SourceCreateSchema.partial()`, rejecting an empty
   body.
+- `SourceSchema` — the response shape, reused by every route that returns one.
 
-Validation rules: `listing_url` must parse as an `http:`/`https:` URL; required
+Validation rules: `listingUrl` must parse as an `http:`/`https:` URL; required
 selectors are non-empty after trim; word-array entries are non-empty after trim
 and lowercased on the way in, since matching is case-insensitive;
-`request_timeout_ms` 1000–60000, `detail_delay_ms` 0–10000,
-`max_items_per_run` 1–500.
+`requestTimeoutMs` 1000–60000, `detailDelayMs` 0–10000, `maxItemsPerRun` 1–500.
 
 **Omitted is not null.** In a PATCH body, an absent key leaves the column alone;
 an explicit `null` clears a nullable selector. Required fields reject null.
@@ -279,13 +293,60 @@ statement about anyone else's data. Per the errors policy in `api/CLAUDE.md`
 this is handled inline in the route — no `setErrorHandler`, no domain error
 classes.
 
+## OpenAPI
+
+`@fastify/swagger` is already wired in `src/openapi.ts` and serves swagger-ui at
+`/docs`. `registerDocs(app)` runs before route registration because swagger
+collects routes through an `onRoute` hook. The sources routes follow the pattern
+`health.ts` establishes: Zod is the source of truth, `jsonSchema()` converts it
+to draft-7, and the result goes in the route's `schema` option.
+
+Three changes to `openapi.ts` itself:
+
+1. `info.description` loses "Single user, self-hosted" — it is now neither.
+2. A security scheme is added: `apiKey`, `in: header`, `name: X-User-Id`,
+   applied to the sources routes. swagger-ui then shows an Authorize box you
+   fill once, rather than a header field to retype on every request, and it is
+   the right shape for a real scheme to replace later.
+3. A shared `ErrorSchema` is exported, matching Fastify's default error body —
+   `{ statusCode: number, error: string, message: string }` — so each route
+   declares failures without restating the shape.
+
+Every route declares its success status **and** each error status it can
+produce: 400 for a malformed body or header, 404 for an unknown or unowned id,
+409 for a duplicate name.
+
+### Validation: Ajv documents, Zod validates
+
+Request bodies declare `body: jsonSchema(SourceCreateSchema)`, and the handler
+*also* runs `SourceCreateSchema.parse()`. This is deliberate but not free, and
+the reasons cut both ways:
+
+- `z.toJSONSchema` cannot express the refinements and transforms this API needs
+  — the `http:`/`https:` protocol check, trimming, lowercasing word lists. A
+  body that satisfies the published JSON Schema can still be rejected by Zod.
+  The published schema is therefore a *description*, deliberately looser than
+  the real rule, and the strict rules are documented in each field's
+  `description` so the gap is visible to a reader.
+- Two validators means **two error shapes** for one status code. Ajv rejections
+  come back in Fastify's default form; a Zod rejection would not. Since 400 is
+  now a documented shape, the handler catches `ZodError` and returns that same
+  `{ statusCode, error, message }` body, with the message built from the issue
+  list. Without this the document would be lying about half its 400s.
+
+Declaring a response schema also makes fast-json-stringify **strip undeclared
+properties**. That is relied on here rather than merely tolerated: it is the
+reason a `userId` can never leak into a payload by accident, whatever the
+repository happens to return.
+
 ## Files
 
 ```
 src/db/schema.ts                 three tables (currently empty)
 drizzle/0000_*.sql               generated migration + the seeded user insert
+src/openapi.ts                   + security scheme, + ErrorSchema, description fix
 src/routes/sources.ts            HTTP
-src/routes/sources.schema.ts     Zod
+src/routes/sources.schema.ts     Zod: create, update, response
 src/auth/current-user.ts         X-User-Id parsing; the one seam auth replaces
 src/services/sources.service.ts  logic
 src/repositories/sources.repository.ts
@@ -294,10 +355,12 @@ test/sources.test.ts
 test/current-user.test.ts
 ```
 
-`app.ts` registers the routes. Two doc updates ship with the code: root
-`CLAUDE.md` loses "Single user, self-hosted", and `api/CLAUDE.md` has the
-code-adapter decision reversed and its two open decisions marked settled —
-cross-source grouping deferred, one row per source confirmed.
+`app.ts` registers the routes after `registerDocs`. Two doc updates ship with
+the code: root `CLAUDE.md` loses "Single user, self-hosted", and `api/CLAUDE.md`
+has the code-adapter decision reversed, its two open decisions marked settled —
+cross-source grouping deferred, one row per source confirmed — and gains a note
+on the Ajv-documents/Zod-validates split, which is the kind of thing a later
+reader will otherwise assume is a mistake.
 
 ## Testing
 
@@ -310,7 +373,15 @@ user regardless of what the body contains.
 Route tests drive `app.inject()` and cover status codes, validation rejections,
 the 409 on a duplicate name within one user, the 400 and 404 paths for
 `X-User-Id`, and that list excludes soft-deleted rows while including disabled
-ones. Both suites run without a database, per the existing `npm test` contract.
+ones.
+
+Two OpenAPI-specific tests, extending the ones the swagger commit already added
+to `test/app.test.ts`: that `app.swagger()` produces a document containing every
+sources path with its security requirement, and that a Zod-rejected body returns
+the *same* 400 body shape as an Ajv-rejected one — the assertion that keeps the
+two-validator split honest.
+
+All of it runs without a database, per the existing `npm test` contract.
 
 Two behaviors only Postgres can prove are **not covered** by the unit suite:
 that the partial unique index permits name reuse after a soft delete, and that
