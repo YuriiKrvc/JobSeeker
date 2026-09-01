@@ -36,4 +36,9 @@ describe('findBlockedWord', () => {
   it('matches across newlines, as a description arrives', () => {
     expect(findBlockedWord('Stack:\n  - PHP\n  - MySQL', ['mysql'])).toBe('mysql')
   })
+
+  it('returns the entry as it was written, not the normalized form', () => {
+    expect(findBlockedWord('Senior PHP Developer', ['PHP'])).toBe('PHP')
+    expect(findBlockedWord('Senior PHP Developer', ['  Php  '])).toBe('  Php  ')
+  })
 })
