@@ -27,8 +27,11 @@ const queryShape = {
 }
 
 /**
- * What Ajv validates and `/docs` publishes. Deliberately carries no maximum on
- * `limit`: Ajv would reject 1000, and the contract is to clamp it.
+ * What Ajv validates and `/docs` publishes. No maximum is imposed at
+ * `MAX_LIMIT` — a value above 200 is clamped, not rejected. Zod's implicit
+ * safe-integer bound on `z.number().int()` still applies underneath (Ajv sees
+ * `maximum: 9007199254740991` from it), so an absurd value like 2^60 is
+ * rejected outright rather than clamped.
  */
 export const PostingsQueryPublishedSchema = z.object(queryShape)
 

@@ -67,6 +67,33 @@ describe('openapi security', () => {
     const doc = response.json<{ info: { description: string } }>()
     expect(doc.info.description).not.toContain('Single user')
   })
+
+  it('documents the ingest and postings paths with their security requirement', () => {
+    const document = app.swagger() as {
+      paths: Record<string, Record<string, { security?: unknown }>>
+    }
+    for (const path of ['/sources/{id}/ingest', '/ingest']) {
+      expect(document.paths[path]?.post?.security).toEqual([{ userId: [] }])
+    }
+    expect(document.paths['/postings']?.get?.security).toEqual([
+      { userId: [] },
+    ])
+  })
+
+  it('publishes the response shapes declared on /postings and the ingest 409', () => {
+    const document = app.swagger() as {
+      paths: Record<
+        string,
+        Record<string, { responses?: Record<string, unknown> }>
+      >
+    }
+    expect(
+      Object.keys(document.paths['/postings']?.get?.responses ?? {}).sort(),
+    ).toEqual(['200', '400', '404'])
+    expect(
+      document.paths['/sources/{id}/ingest']?.post?.responses,
+    ).toHaveProperty('409')
+  })
 })
 
 describe('jsonSchema / bodySchema io modes', () => {

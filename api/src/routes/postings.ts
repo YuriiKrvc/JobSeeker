@@ -1,5 +1,5 @@
-import { ErrorSchema, USER_ID_SECURITY, jsonSchema } from '../openapi.js'
-import { badRequest, makeCaller, zodMessage } from './http.js'
+import { USER_ID_SECURITY, jsonSchema } from '../openapi.js'
+import { badRequest, errorResponses, makeCaller, zodMessage } from './http.js'
 import {
   PostingListResponseSchema,
   PostingsQueryPublishedSchema,
@@ -34,8 +34,7 @@ export async function postingsRoutes(
         querystring: jsonSchema(PostingsQueryPublishedSchema, 'input'),
         response: {
           200: jsonSchema(PostingListResponseSchema),
-          400: ErrorSchema,
-          404: ErrorSchema,
+          ...errorResponses,
         },
       },
     },
