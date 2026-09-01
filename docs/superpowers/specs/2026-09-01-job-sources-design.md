@@ -277,9 +277,11 @@ Three Zod schemas in `src/routes/sources.schema.ts`:
   body.
 - `SourceSchema` — the response shape, reused by every route that returns one.
 
-Validation rules: `listingUrl` must parse as an `http:`/`https:` URL; required
-selectors are non-empty after trim; word-array entries are non-empty after trim
-and lowercased on the way in, since matching is case-insensitive;
+Validation rules: `listingUrl` must parse as an `http:`/`https:` URL; `name`
+and required selectors are rejected outright if whitespace-only (checked with
+a regex requiring at least one non-whitespace character, not trimmed); word-array
+entries are trimmed and lowercased on the way in, since matching is
+case-insensitive, and a blank entry is dropped rather than rejected;
 `requestTimeoutMs` 1000–60000, `detailDelayMs` 0–10000, `maxItemsPerRun` 1–500.
 
 **Omitted is not null.** In a PATCH body, an absent key leaves the column alone;
@@ -314,7 +316,11 @@ Three changes to `openapi.ts` itself:
 
 Every route declares its success status **and** each error status it can
 produce: 400 for a malformed body or header, 404 for an unknown or unowned id,
-409 for a duplicate name.
+409 for a duplicate name. DELETE's success status is 204, declared as
+`{ description: 'Deleted' }` with no other keys — checked directly against
+Fastify 5, declaring a schema for 204 does not make it serialize a body;
+Fastify skips payload serialization for that status regardless of what the
+schema says.
 
 ### Validation: Ajv documents, Zod validates
 

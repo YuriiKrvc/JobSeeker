@@ -1764,9 +1764,10 @@ export async function sourcesRoutes(
         description: 'Soft — the row is retained so its postings keep resolving.',
         security: USER_ID_SECURITY,
         params: jsonSchema(IdParams),
-        // No 204 entry: a declared schema for an empty body makes
-        // fast-json-stringify serialize where Fastify would send nothing.
-        response: errorResponses,
+        // Fastify skips payload serialization for a 204 regardless of what
+        // is declared here, so this documents the response without
+        // affecting the (empty) body the handler actually sends.
+        response: { 204: { description: 'Deleted' }, ...errorResponses },
       },
     },
     async (request, reply) => {
