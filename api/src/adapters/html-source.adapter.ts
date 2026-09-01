@@ -118,3 +118,38 @@ export async function listItems(
 
   return { items, errors }
 }
+
+export async function fetchDetail(
+  source: SourceRow,
+  url: string,
+  fetchText: FetchText,
+): Promise<DetailResult> {
+  const html = await fetchText(url, source.requestTimeoutMs)
+  const $ = cheerio.load(html)
+  const root = $.root()
+
+  const description = read(
+    pick($, root, source.descriptionSelector),
+    source.descriptionAttr,
+  )
+  // `postings.description` is NOT NULL and a posting with no body is useless.
+  // Throwing puts this item in the run's `errors[]` and leaves it unstored, so
+  // the next run retries it — which is what a page that failed to render wants.
+  if (!description) {
+    throw new Error(
+      `${url}: description selector matched nothing (${source.descriptionSelector})`,
+    )
+  }
+
+  // The optional fields are optional twice over: the selector may be unset, and
+  // a configured selector may match nothing. Neither is a failure — a board
+  // that omits the company on some postings is normal.
+  const company = source.companySelector
+    ? read(pick($, root, source.companySelector), source.companyAttr)
+    : null
+  const postedAtRaw = source.postedAtSelector
+    ? read(pick($, root, source.postedAtSelector), source.postedAtAttr)
+    : null
+
+  return { description, company, postedAtRaw }
+}

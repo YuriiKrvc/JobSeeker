@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listItems } from '../src/adapters/html-source.adapter.js'
+import { fetchDetail, listItems } from '../src/adapters/html-source.adapter.js'
 import type { SourceRow } from '../src/repositories/sources.repository.js'
 
 const OWNER = '00000000-0000-4000-8000-00000000000a'
@@ -129,5 +129,67 @@ describe('listItems', () => {
   it('lets a listing fetch failure escape, for the service to record', async () => {
     const fetch = vi.fn(() => Promise.reject(new Error('HTTP 503')))
     await expect(listItems(sourceRow(), fetch)).rejects.toThrow('HTTP 503')
+  })
+})
+
+describe('fetchDetail', () => {
+  const page = `
+    <div id="description"> We need a <b>dev</b>. </div>
+    <span class="company">ACME</span>
+    <time class="posted" datetime="2026-08-30T00:00:00Z">3 days ago</time>
+  `
+
+  it('reads the description from the detail page', async () => {
+    const fetch = vi.fn(() => Promise.resolve(page))
+    const detail = await fetchDetail(
+      sourceRow(),
+      'https://example.com/jobs/1',
+      fetch,
+    )
+    expect(detail.description).toBe('We need a dev.')
+    expect(fetch).toHaveBeenCalledWith('https://example.com/jobs/1', 10000)
+  })
+
+  it('leaves the optional fields null when no selector is configured', async () => {
+    const detail = await fetchDetail(
+      sourceRow(),
+      'https://example.com/jobs/1',
+      vi.fn(() => Promise.resolve(page)),
+    )
+    expect(detail.company).toBeNull()
+    expect(detail.postedAtRaw).toBeNull()
+  })
+
+  it('reads the optional fields when selectors are configured', async () => {
+    const detail = await fetchDetail(
+      sourceRow({
+        companySelector: '.company',
+        postedAtSelector: 'time.posted',
+        postedAtAttr: 'datetime',
+      }),
+      'https://example.com/jobs/1',
+      vi.fn(() => Promise.resolve(page)),
+    )
+    expect(detail.company).toBe('ACME')
+    expect(detail.postedAtRaw).toBe('2026-08-30T00:00:00Z')
+  })
+
+  it('leaves an optional field null when its selector matches nothing', async () => {
+    const detail = await fetchDetail(
+      sourceRow({ companySelector: '.nope' }),
+      'https://example.com/jobs/1',
+      vi.fn(() => Promise.resolve(page)),
+    )
+    expect(detail.company).toBeNull()
+  })
+
+  it('throws when the description selector matches nothing', async () => {
+    await expect(
+      fetchDetail(
+        sourceRow(),
+        'https://example.com/jobs/1',
+        vi.fn(() => Promise.resolve('<main>no description here</main>')),
+      ),
+    ).rejects.toThrow('description selector matched nothing')
   })
 })
