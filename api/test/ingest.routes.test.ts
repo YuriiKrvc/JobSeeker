@@ -49,9 +49,8 @@ afterAll(async () => {
 
 describe('POST /sources/:id/ingest', () => {
   it('returns the run summary', async () => {
-    const ingestOne = vi.fn(
-      (): Promise<IngestOneResult> =>
-        Promise.resolve({ ok: true, summary: summary() }),
+    const ingestOne = vi.fn((): Promise<IngestOneResult> =>
+      Promise.resolve({ ok: true, summary: summary() }),
     )
     app = appWith({ ingestOne, ingestAll: vi.fn() })
 
@@ -171,9 +170,8 @@ describe('POST /sources/:id/ingest', () => {
   })
 
   it('ignores a userId supplied in the body', async () => {
-    const ingestOne = vi.fn(
-      (): Promise<IngestOneResult> =>
-        Promise.resolve({ ok: true, summary: summary() }),
+    const ingestOne = vi.fn((): Promise<IngestOneResult> =>
+      Promise.resolve({ ok: true, summary: summary() }),
     )
     app = appWith({ ingestOne, ingestAll: vi.fn() })
 
@@ -190,7 +188,10 @@ describe('POST /sources/:id/ingest', () => {
 
 describe('POST /ingest', () => {
   it('returns one summary per source it ran', async () => {
-    const runs = [summary(), summary({ sourceId: '00000000-0000-4000-8000-000000000002' })]
+    const runs = [
+      summary(),
+      summary({ sourceId: '00000000-0000-4000-8000-000000000002' }),
+    ]
     const ingestAll = vi.fn(() => Promise.resolve(runs))
     app = appWith({ ingestOne: vi.fn(), ingestAll })
 

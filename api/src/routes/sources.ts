@@ -1,6 +1,11 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { z } from 'zod'
-import { ErrorSchema, USER_ID_SECURITY, bodySchema, jsonSchema } from '../openapi.js'
+import {
+  ErrorSchema,
+  USER_ID_SECURITY,
+  bodySchema,
+  jsonSchema,
+} from '../openapi.js'
 import type { UsersRepository } from '../repositories/users.repository.js'
 import type { SourcesService } from '../services/sources.service.js'
 import {

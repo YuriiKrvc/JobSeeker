@@ -57,7 +57,10 @@ describe('listItems', () => {
   })
 
   it('treats an empty listing as a run with no items, not an error', async () => {
-    const { items, errors } = await listItems(sourceRow(), oneOf('<main></main>'))
+    const { items, errors } = await listItems(
+      sourceRow(),
+      oneOf('<main></main>'),
+    )
     expect(items).toEqual([])
     expect(errors).toEqual([])
   })

@@ -89,7 +89,10 @@ export async function listItems(
       source.detailUrlAttr,
     )
     if (!href) {
-      errors.push({ url: source.listingUrl, message: `${where}: no detail url` })
+      errors.push({
+        url: source.listingUrl,
+        message: `${where}: no detail url`,
+      })
       return
     }
 

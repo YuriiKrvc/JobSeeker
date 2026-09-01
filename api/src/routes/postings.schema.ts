@@ -39,12 +39,10 @@ export const PostingsQueryPublishedSchema = z.object(queryShape)
  * The handler's schema. Same shape plus the clamp, kept out of the published
  * one because `z.toJSONSchema` cannot represent a transform.
  */
-export const PostingsQuerySchema = z
-  .object(queryShape)
-  .transform((query) => ({
-    ...query,
-    limit: Math.min(query.limit, MAX_LIMIT),
-  }))
+export const PostingsQuerySchema = z.object(queryShape).transform((query) => ({
+  ...query,
+  limit: Math.min(query.limit, MAX_LIMIT),
+}))
 
 export type PostingsQuery = z.infer<typeof PostingsQuerySchema>
 
@@ -54,11 +52,15 @@ export const PostingResponseSchema = z.object({
   url: z.string().describe('Absolutized detail URL; the identity of a posting'),
   title: z.string(),
   company: z.string().nullable(),
-  description: z.string().describe('Empty for a title-blocked posting, which was never fetched'),
+  description: z
+    .string()
+    .describe('Empty for a title-blocked posting, which was never fetched'),
   postedAtRaw: z
     .string()
     .nullable()
-    .describe('As scraped, e.g. "3 days ago" — kept so a parse misfire stays visible'),
+    .describe(
+      'As scraped, e.g. "3 days ago" — kept so a parse misfire stays visible',
+    ),
   postedAt: z
     .string()
     .nullable()

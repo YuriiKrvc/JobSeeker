@@ -30,7 +30,8 @@ describe('fetchText', () => {
     const spy = vi.fn(() => Promise.resolve(new Response('ok')))
     vi.stubGlobal('fetch', spy)
     await fetchText('https://example.com', 250)
-    const init = ((spy.mock.calls as unknown[][])[0])?.[1] as RequestInit | undefined
+    const init = (spy.mock.calls as unknown[][])[0]?.[1] as
+      RequestInit | undefined
     expect(init?.signal).toBeInstanceOf(AbortSignal)
     expect(
       (init?.headers as Record<string, string> | undefined)?.['user-agent'],
@@ -40,9 +41,7 @@ describe('fetchText', () => {
   it('reports a timeout as a readable message', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() =>
-        Promise.reject(new DOMException('aborted', 'TimeoutError')),
-      ),
+      vi.fn(() => Promise.reject(new DOMException('aborted', 'TimeoutError'))),
     )
     await expect(fetchText('https://example.com', 5)).rejects.toThrow(
       'timed out after 5ms',

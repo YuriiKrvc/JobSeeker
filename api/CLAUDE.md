@@ -139,7 +139,7 @@ it as an outbound driver. Only `ingestion.service.ts` touches it.
   right, the counter is not. Relevant once the scheduler exists.
 - **A run whose listing page loaded but whose every detail page failed still
   reads as healthy.** `last_success_at` advances and `last_error` is cleared
-  whenever the *listing* fetch succeeded, per the spec's rule that individual
+  whenever the _listing_ fetch succeeded, per the spec's rule that individual
   item failures do not mark a run failed. So a board that suddenly 503s every
   detail page shows a clean `GET /sources` and hides the breakage in each
   run's `errors[]`. Watch the run summary or the postings count, not just the

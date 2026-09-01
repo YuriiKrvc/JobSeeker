@@ -75,9 +75,7 @@ describe('openapi security', () => {
     for (const path of ['/sources/{id}/ingest', '/ingest']) {
       expect(document.paths[path]?.post?.security).toEqual([{ userId: [] }])
     }
-    expect(document.paths['/postings']?.get?.security).toEqual([
-      { userId: [] },
-    ])
+    expect(document.paths['/postings']?.get?.security).toEqual([{ userId: [] }])
   })
 
   it('publishes the response shapes declared on /postings and the ingest 409', () => {

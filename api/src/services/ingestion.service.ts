@@ -87,10 +87,7 @@ export function createIngestionService(deps: IngestionDeps) {
     // A source may add markers to its owner's but can never remove one, which
     // is just concatenation: the owner's list is always present.
     const owner = await deps.users.findBlocklists(userId)
-    const titleWords = [
-      ...source.blockedTitleWords,
-      ...owner.blockedTitleWords,
-    ]
+    const titleWords = [...source.blockedTitleWords, ...owner.blockedTitleWords]
     const descriptionWords = [
       ...source.blockedDescriptionWords,
       ...owner.blockedDescriptionWords,
@@ -234,9 +231,7 @@ export function createIngestionService(deps: IngestionDeps) {
             updated: 0,
             blocked: 0,
             truncated: false,
-            errors: [
-              { url: source.listingUrl, message: messageOf(error) },
-            ],
+            errors: [{ url: source.listingUrl, message: messageOf(error) }],
           })
         }
       }

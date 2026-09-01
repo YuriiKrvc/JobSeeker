@@ -6,7 +6,9 @@ import { z } from 'zod'
  * working board.
  */
 export const ItemErrorSchema = z.object({
-  url: z.string().describe('The listing URL for a bad item, else the detail URL'),
+  url: z
+    .string()
+    .describe('The listing URL for a bad item, else the detail URL'),
   message: z.string(),
 })
 

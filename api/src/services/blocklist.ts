@@ -20,7 +20,10 @@ const SEPARATORS = /[^\p{L}\p{N}+#]+/u
 export function findBlockedWord(text: string, words: string[]): string | null {
   if (words.length === 0) return null
   const tokens = new Set(
-    text.toLowerCase().split(SEPARATORS).filter((token) => token.length > 0),
+    text
+      .toLowerCase()
+      .split(SEPARATORS)
+      .filter((token) => token.length > 0),
   )
   for (const word of words) {
     const needle = word.trim().toLowerCase()

@@ -39,7 +39,8 @@ function fakeSources(rows: SourceRow[]) {
   const results: { id: string; lastError: string | null }[] = []
   const repo: SourcesRepository = {
     list: () => Promise.resolve(rows),
-    findById: (_userId, id) => Promise.resolve(rows.find((r) => r.id === id) ?? null),
+    findById: (_userId, id) =>
+      Promise.resolve(rows.find((r) => r.id === id) ?? null),
     create: () => Promise.reject(new Error('not used')),
     update: () => Promise.reject(new Error('not used')),
     softDelete: () => Promise.reject(new Error('not used')),
@@ -56,7 +57,10 @@ function fakeSources(rows: SourceRow[]) {
 }
 
 function fakeUsers(
-  blocklists = { blockedTitleWords: [] as string[], blockedDescriptionWords: [] as string[] },
+  blocklists = {
+    blockedTitleWords: [] as string[],
+    blockedDescriptionWords: [] as string[],
+  },
 ): UsersRepository {
   return {
     exists: () => Promise.resolve(true),
@@ -170,7 +174,7 @@ describe('ingestOne', () => {
     expect(postings.inserted[0]).toMatchObject({ blockedBy: 'senior' })
   })
 
-  it("keeps both lists when owner and source each block a different word", async () => {
+  it('keeps both lists when owner and source each block a different word', async () => {
     // A source-only or owner-only case cannot tell union from "whichever list
     // is non-empty wins" — both lists must be non-empty and disjoint so that
     // replacement in either direction fails this test.
@@ -286,7 +290,8 @@ describe('ingestOne', () => {
     const postings = fakePostings()
     const fetchText = vi.fn((url: string) => {
       if (url === 'https://example.com/jobs/') return Promise.resolve(LISTING)
-      if (url === 'https://example.com/1') return Promise.reject(new Error('HTTP 503'))
+      if (url === 'https://example.com/1')
+        return Promise.reject(new Error('HTTP 503'))
       return Promise.resolve(DETAIL)
     })
     const service = createIngestionService({
@@ -373,9 +378,7 @@ describe('ingestOne', () => {
         errors: [{ url: 'https://example.com/jobs/', message: 'HTTP 500' }],
       },
     })
-    expect(sources.results).toEqual([
-      { id: source.id, lastError: 'HTTP 500' },
-    ])
+    expect(sources.results).toEqual([{ id: source.id, lastError: 'HTTP 500' }])
   })
 
   it('reports unusable listing items in errors and counts them in fetched', async () => {

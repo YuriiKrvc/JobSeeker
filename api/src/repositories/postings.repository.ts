@@ -139,15 +139,13 @@ export function createPostingsRepository(): PostingsRepository {
     },
 
     async search(userId, { sourceId, includeBlocked, limit, offset }) {
-      const conditions = [
-        eq(sources.userId, userId),
-        isNull(sources.deletedAt),
-      ]
+      const conditions = [eq(sources.userId, userId), isNull(sources.deletedAt)]
       // A filter, not a lookup: another user's sourceId simply matches nothing.
       // Checked with `!== undefined`, not truthiness — an empty string must
       // narrow to nothing, not silently widen to every one of the user's
       // sources.
-      if (sourceId !== undefined) conditions.push(eq(postings.sourceId, sourceId))
+      if (sourceId !== undefined)
+        conditions.push(eq(postings.sourceId, sourceId))
       if (!includeBlocked) conditions.push(isNull(postings.blockedBy))
       const where = and(...conditions)
 
