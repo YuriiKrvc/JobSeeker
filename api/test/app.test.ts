@@ -47,3 +47,22 @@ describe('openapi document', () => {
     })
   })
 })
+
+describe('openapi security', () => {
+  it('declares X-User-Id as an apiKey scheme', async () => {
+    const response = await app.inject({ method: 'GET', url: '/docs/json' })
+    expect(response.json<unknown>()).toMatchObject({
+      components: {
+        securitySchemes: {
+          userId: { type: 'apiKey', in: 'header', name: 'X-User-Id' },
+        },
+      },
+    })
+  })
+
+  it('no longer describes itself as single user', async () => {
+    const response = await app.inject({ method: 'GET', url: '/docs/json' })
+    const doc = response.json<{ info: { description: string } }>()
+    expect(doc.info.description).not.toContain('Single user')
+  })
+})
