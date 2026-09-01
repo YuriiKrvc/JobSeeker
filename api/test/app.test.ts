@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { buildApp } from '../src/app.js'
+import { bodySchema, jsonSchema } from '../src/openapi.js'
 
 const app = buildApp()
 
@@ -45,5 +47,41 @@ describe('openapi document', () => {
         },
       },
     })
+  })
+})
+
+describe('openapi security', () => {
+  it('declares X-User-Id as an apiKey scheme', async () => {
+    const response = await app.inject({ method: 'GET', url: '/docs/json' })
+    expect(response.json<unknown>()).toMatchObject({
+      components: {
+        securitySchemes: {
+          userId: { type: 'apiKey', in: 'header', name: 'X-User-Id' },
+        },
+      },
+    })
+  })
+
+  it('no longer describes itself as single user', async () => {
+    const response = await app.inject({ method: 'GET', url: '/docs/json' })
+    const doc = response.json<{ info: { description: string } }>()
+    expect(doc.info.description).not.toContain('Single user')
+  })
+})
+
+describe('jsonSchema / bodySchema io modes', () => {
+  const withDefault = z.object({
+    name: z.string(),
+    enabled: z.boolean().default(true),
+  })
+
+  it('jsonSchema (output, the response default) requires a defaulted field', () => {
+    const schema = jsonSchema(withDefault) as { required?: string[] }
+    expect(schema.required).toContain('enabled')
+  })
+
+  it('bodySchema (input) leaves a defaulted field out of required', () => {
+    const schema = bodySchema(withDefault) as { required?: string[] }
+    expect(schema.required).not.toContain('enabled')
   })
 })

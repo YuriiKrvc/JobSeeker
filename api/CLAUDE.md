@@ -4,14 +4,13 @@ Guidance for the JobSeeker REST API. The repo-root `CLAUDE.md` holds the
 cross-cutting rules (product scope, the API-is-the-only-contract rule, the
 Postgres container). This file covers only `api/`.
 
-## Status: scaffold only
+## Status
 
-Initialized 2026-09-01. The server boots, `/health` reaches Postgres, tests and
-typecheck pass. **There is no domain code at all** — no tables, no migrations,
-no adapters, no `/postings`. That is deliberate, not unfinished work: the
-duplicate-handling rule is still open (below), and it decides the schema.
-
-Do not add domain code without settling the open decisions first.
+The sources API is built: three tables (`users`, `sources`, `postings`), CRUD
+at `/sources`, and an OpenAPI document at `/docs`. **Nothing fetches any job
+board yet** — `postings` is created but written by nothing. The generic
+adapter, the ingestion pipeline, the `POST` trigger and the 30-minute schedule
+are the next slice.
 
 ## Commands
 
@@ -30,8 +29,8 @@ npm test                  # vitest; no database required
 npm run typecheck         # covers src, test, and *.config.ts
 npm run lint              # eslint, type-aware rules
 npm run format            # prettier --write .
-npm run db:generate       # SQL from src/db/schema.ts (no tables yet — a no-op)
-npm run db:migrate        # apply drizzle/*.sql — fails until a table exists
+npm run db:generate       # SQL from src/db/schema.ts, into drizzle/
+npm run db:migrate        # apply drizzle/*.sql
 ```
 
 There is **no `dotenv`**. `dev`, `start`, and `db:migrate` load `.env` through
@@ -40,6 +39,10 @@ and ships no `.env` file works unchanged. Anything else that imports
 `config.ts` needs that flag too, or `process.env` reaches Zod empty and the
 process exits with `Invalid environment`. `vitest.config.ts` sidesteps this by
 setting the vars itself.
+
+The URL there points at the same local Postgres as `.env.example`, but nothing
+in the unit suite connects: `postgres.js` opens a socket on first query, and
+tests inject fake repositories rather than the real ones.
 
 ## Stack
 
@@ -72,12 +75,12 @@ src/
   app.ts          buildApp() — registers routes, returns the instance
   server.ts       listen + SIGINT/SIGTERM shutdown. No logic lives here.
   db/
-    schema.ts     Drizzle tables — empty, see Open decisions
+    schema.ts     Drizzle tables — users, sources, postings
     client.ts     lazy connection pool, `db` handle, closeDb()
     migrate.ts    applies drizzle/*.sql
   routes/         HTTP only — one file per resource
-  services/       business logic (empty)
-  repositories/   all SQL (empty)
+  services/       business logic
+  repositories/   all SQL
 drizzle/          generated migrations — committed, never hand-edited
 test/
 eslint.config.js  flat config
@@ -115,6 +118,47 @@ since nothing centralizes them. If that starts to hurt, the fix is one
 solve it by having services return status codes, which would break the layering
 rule above.
 
+## Two validators, one status code
+
+Request bodies are validated **twice**, on purpose. The route declares
+`body: bodySchema(Schema)` so Fastify's Ajv checks it and `@fastify/swagger`
+publishes it; the handler then runs `Schema.safeParse` for the rules JSON
+Schema cannot express — the http/https protocol check, the "at least one key"
+rule on a patch.
+
+Two consequences a later reader will otherwise take for bugs:
+
+- **The published schema is deliberately looser than the real rule.** A body
+  that satisfies the document can still be rejected. The strict rules live in
+  each field's `.describe()`.
+- **`bodySchema` converts with `io: 'input'`, `jsonSchema` with `'output'`.**
+  Under `'output'` Zod marks every `.default()` field `required`, and Ajv would
+  reject bodies that Zod accepts. Responses want `'output'`.
+
+Fastify's default Ajv also runs with `removeAdditional: true`, so an unknown
+key in a request body is stripped before the handler ever runs — Zod's
+`.strict()` never sees it and is not what rejects a body-supplied `userId`.
+
+The PATCH route publishes `bodySchema(SourceUpdateBaseSchema)` — the
+unrefined partial — while the handler parses the refined `SourceUpdateSchema`,
+because `z.toJSONSchema` throws on a `.refine()`; the published document is
+therefore looser than the handler in this one additional way.
+
+Because 400 is a documented response shape, handlers reproduce Fastify's
+`{ statusCode, error, message }` body by hand rather than inventing one — with
+no `setErrorHandler` there is nothing to normalize it for them.
+
+## Isolation
+
+Every user sees only their own data. `sources.user_id` is the sole ownership
+record; postings derive theirs through `source_id`. `SourcesRepository` exposes
+no method that does not take a `userId`, so there is no unscoped query to
+forget to scope. Another user's source id returns **404**, never 403.
+
+`X-User-Id` stands in for authentication and **must not reach a deployment** —
+any caller can claim to be any user. `src/auth/current-user.ts` is the only
+place that changes when sessions arrive.
+
 ## Decisions already made (not yet built)
 
 - **Ingestion has two triggers**: a `POST` endpoint for on-demand runs, and a
@@ -124,22 +168,10 @@ rule above.
   wiring a scheduler with no job to run would be dead code. Add it with the
   ingestion service. Consequence to remember: ingestion shares the API process,
   so running two API instances would double-fetch.
-- **Source adapters stay behind one interface.** How an adapter fetches — REST,
-  RSS, scraped HTML, a browser — stays inside the adapter; nothing outside may
-  assume any of it. Adding a source should mean adding one file and registering
-  it. If a new source forces changes elsewhere, the interface is wrong.
-
-## Open decisions — settle before writing the schema
-
-- **The same job on several boards.** Root `CLAUDE.md` says one posting; the
-  current instruction is to keep one row per source and not collapse them.
-  Unresolved: whether the API still groups those rows into a single result for
-  the frontend, or returns them separately. This determines whether postings
-  need a cross-source fingerprint column at all, so the table cannot be written
-  until it is answered.
-- **Re-seeing a job from the same source** is a no-op: postings are assumed
-  immutable once fetched, so nothing is updated. Uniqueness is therefore on
-  `(source, source_id)`.
+- **A source is a row, not a file.** One generic adapter reads `sources` — a
+  listing URL plus CSS selectors, page one only, plain HTTP and cheerio, no
+  headless browser. Adding a board is a `POST /sources`. This reverses an
+  earlier decision that each board would be its own TypeScript file.
 
 ## Known wart
 

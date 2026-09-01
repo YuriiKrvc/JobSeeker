@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-`api/` is scaffolded — it boots and reaches Postgres, but has no domain code
+`api/` has a sources CRUD API in front of Postgres; nothing fetches a job board
 yet. Its commands, layout, and layering rules live in **`api/CLAUDE.md`**.
 `frontend/` is still an empty directory; what is said about it here is a
 decision, not an observation.
@@ -17,7 +17,8 @@ in `api/CLAUDE.md`, not here.
 ## What it is
 
 Aggregates job postings from multiple sources into one searchable place.
-Single user, self-hosted.
+**Multi-user**: every user owns their own sources, blocklists and postings, and
+no data is shared between users. Self-hosted.
 
 ## Stack
 
@@ -49,23 +50,18 @@ originally). It runs in the API process; see `api/CLAUDE.md`.
 
 ## Architecture
 
-The one seam that matters: **source adapters.** Each job board is a single
-adapter behind a common interface, and the interface returns normalized
-postings.
+The one seam that matters: **a source is a database row, not a code file.** One
+generic adapter reads the row — a listing URL plus CSS selectors — so adding a
+job board is a `POST /sources`, never a deploy. How the adapter fetches stays
+inside the adapter; nothing outside it may assume HTML, JSON, or a rate-limit
+shape.
 
-How an adapter fetches is undecided — some sources have real APIs, others will
-need scraping. That decision stays *inside* the adapter. Nothing outside an
-adapter may assume HTML, or JSON, or a browser, or a rate limit shape. Adding a
-source should mean adding one file and registering it, and touching nothing
-else.
-
-**Duplicate handling is unsettled.** The original rule here was that one job on
-three boards is one posting. The current instruction is the opposite: keep one
-row per source and do not collapse across sources, since a re-seen posting from
-the same source is assumed unchanged and is simply ignored. What has *not* been
-decided is whether the API groups those rows into a single result for the
-frontend. Until that is answered, the postings table is not written — see the
-Open decisions section of `api/CLAUDE.md`.
+**Duplicate handling is settled.** One row per source, keyed on the posting's
+detail URL. A re-seen posting from the same source is assumed unchanged and
+only has its `last_seen_at` advanced. Postings are *not* collapsed across
+sources, and the API does not group them — the same job on three boards is
+three results. See
+`docs/superpowers/specs/2026-09-01-job-sources-design.md`.
 
 What still holds either way: any collapsing is a job for the merged result set
 after normalization, never for an individual adapter. An adapter cannot see the
