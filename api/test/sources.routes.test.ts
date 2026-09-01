@@ -7,6 +7,8 @@ import type {
   SourcesRepository,
 } from '../src/repositories/sources.repository.js'
 import { createSourcesService } from '../src/services/sources.service.js'
+import type { IngestionService } from '../src/services/ingestion.service.js'
+import type { PostingsService } from '../src/services/postings.service.js'
 import type { FastifyInstance } from 'fastify'
 
 const ALICE = '00000000-0000-4000-8000-00000000000a'
@@ -100,12 +102,19 @@ const uniqueViolation = () =>
 // before assigning.
 let app: FastifyInstance = buildApp({
   sources: createSourcesService(fakeRepo()),
+  postings: {} as PostingsService,
   users,
+  ingestion: {} as IngestionService,
 })
 
 beforeEach(async () => {
   await app.close()
-  app = buildApp({ sources: createSourcesService(fakeRepo()), users })
+  app = buildApp({
+    sources: createSourcesService(fakeRepo()),
+    postings: {} as PostingsService,
+    users,
+    ingestion: {} as IngestionService,
+  })
 })
 
 afterAll(async () => {
@@ -395,7 +404,9 @@ describe('POST /sources conflict handling', () => {
   it('409s on a duplicate name, wrapped the way drizzle-orm actually wraps it', async () => {
     const conflictApp = buildApp({
       sources: createSourcesService(fakeRepoThatThrows(uniqueViolation())),
+      postings: {} as PostingsService,
       users,
+      ingestion: {} as IngestionService,
     })
     try {
       const response = await conflictApp.inject({
@@ -424,7 +435,9 @@ describe('POST /sources conflict handling', () => {
     })
     const brokenApp = buildApp({
       sources: createSourcesService(fakeRepoThatThrows(otherError)),
+      postings: {} as PostingsService,
       users,
+      ingestion: {} as IngestionService,
     })
     try {
       const response = await brokenApp.inject({
