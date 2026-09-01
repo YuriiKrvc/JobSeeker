@@ -24,6 +24,8 @@ const body = {
 
 const users: UsersRepository = {
   exists: (id) => Promise.resolve(id === ALICE || id === BOB),
+  findBlocklists: () =>
+    Promise.resolve({ blockedTitleWords: [], blockedDescriptionWords: [] }),
 }
 
 /** Mirrors the fake in sources.service.test.ts; kept local so each suite reads alone. */
@@ -64,6 +66,8 @@ function fakeRepo(): SourcesRepository {
       row.deletedAt = new Date()
       return Promise.resolve(true)
     },
+    recordRunStart: () => Promise.resolve(),
+    recordRunResult: () => Promise.resolve(),
   }
 }
 

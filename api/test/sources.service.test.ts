@@ -70,6 +70,8 @@ function fakeRepo(
       row.deletedAt = new Date()
       return Promise.resolve(true)
     },
+    recordRunStart: () => Promise.resolve(),
+    recordRunResult: () => Promise.resolve(),
   }
 }
 
