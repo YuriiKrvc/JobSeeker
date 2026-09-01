@@ -60,6 +60,22 @@ export interface SourcesRepository {
   ): Promise<SourceRow | null>
   /** True when a live row was marked deleted; false when there was none. */
   softDelete(userId: string, id: string): Promise<boolean>
+
+  /**
+   * The pipeline's health columns. These two methods are the only writers of
+   * `last_run_at`, `last_success_at` and `last_error` — the CRUD routes must
+   * never touch them, and `update()` cannot: `SourceUpdate` has no such keys.
+   *
+   * Neither reports whether a row matched. The caller has already read the row
+   * through `findById`, and a source deleted mid-run does not need a second
+   * error path.
+   */
+  recordRunStart(userId: string, id: string): Promise<void>
+  recordRunResult(
+    userId: string,
+    id: string,
+    result: { lastError: string | null },
+  ): Promise<void>
 }
 
 /** Every query carries these two: the caller's id, and "not soft-deleted". */
@@ -109,6 +125,26 @@ export function createSourcesRepository(): SourcesRepository {
         .where(and(live(userId), eq(sources.id, id)))
         .returning({ id: sources.id })
       return rows.length > 0
+    },
+
+    async recordRunStart(userId, id) {
+      await db
+        .update(sources)
+        // `updatedAt` is deliberately not touched: it tracks edits to the
+        // user's configuration, and a scrape run is not an edit.
+        .set({ lastRunAt: new Date() })
+        .where(and(live(userId), eq(sources.id, id)))
+    },
+
+    async recordRunResult(userId, id, { lastError }) {
+      await db
+        .update(sources)
+        .set(
+          lastError === null
+            ? { lastSuccessAt: new Date(), lastError: null }
+            : { lastError },
+        )
+        .where(and(live(userId), eq(sources.id, id)))
     },
   }
 }
