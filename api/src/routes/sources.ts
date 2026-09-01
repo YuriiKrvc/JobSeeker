@@ -242,8 +242,21 @@ export async function sourcesRoutes(
    * anything about sources the caller cannot see.
    */
   function conflictOr(reply: FastifyReply, error: unknown) {
-    const code = (error as { code?: string }).code
-    if (code !== UNIQUE_VIOLATION) throw error
+    if (pgErrorCode(error) !== UNIQUE_VIOLATION) throw error
     return fail(reply, 409, 'Conflict', 'You already have a source with that name')
   }
+}
+
+/**
+ * drizzle-orm 0.45 wraps every driver error in `DrizzleQueryError`, so the
+ * real `postgres.js` error — the one actually carrying `code` — sits one
+ * level down at `.cause`, not on the error itself. Checked directly on the
+ * live database: `error.code` is `undefined` and `error.cause.code` is
+ * `'23505'`. Only one level is unwrapped on purpose — there is nothing below
+ * `.cause` for this error shape, and unwrapping further would be a guess.
+ */
+function pgErrorCode(error: unknown): string | undefined {
+  const direct = (error as { code?: string }).code
+  if (direct !== undefined) return direct
+  return (error as { cause?: { code?: string } }).cause?.code
 }

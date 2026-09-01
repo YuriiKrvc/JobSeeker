@@ -65,6 +65,27 @@ function fakeRepo(): SourcesRepository {
   }
 }
 
+/**
+ * A repo whose `create` always throws. Used to drive `conflictOr` without a
+ * real database — the shape mirrors what drizzle-orm 0.45 actually produces
+ * against Postgres: a wrapper error (`DrizzleQueryError`) whose own `.code`
+ * is undefined, with the real `postgres.js` error nested at `.cause`.
+ */
+function fakeRepoThatThrows(error: Error): SourcesRepository {
+  return {
+    ...fakeRepo(),
+    create: () => Promise.reject(error),
+  }
+}
+
+const uniqueViolation = () =>
+  Object.assign(new Error('duplicate key value violates unique constraint'), {
+    cause: Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
+      constraint_name: 'sources_user_name_uniq',
+    }),
+  })
+
 // Initialized at declaration, not in beforeEach: `noUncheckedIndexedAccess`
 // and strict mode reject a `let app: FastifyInstance` that beforeEach reads
 // before assigning.
@@ -248,5 +269,50 @@ describe('openapi document', () => {
     }>()
     expect(Object.keys(doc.paths)).toEqual(expect.arrayContaining(['/sources', '/sources/{id}']))
     expect(doc.paths['/sources']?.post?.security).toEqual([{ userId: [] }])
+  })
+})
+
+describe('POST /sources conflict handling', () => {
+  it('409s on a duplicate name, wrapped the way drizzle-orm actually wraps it', async () => {
+    const conflictApp = buildApp({
+      sources: createSourcesService(fakeRepoThatThrows(uniqueViolation())),
+      users,
+    })
+    try {
+      const response = await conflictApp.inject({
+        method: 'POST',
+        url: '/sources',
+        headers: as(ALICE),
+        payload: body,
+      })
+      expect(response.statusCode).toBe(409)
+      expect(response.json<{ message: string }>().message).toBe(
+        'You already have a source with that name',
+      )
+      expect(Object.keys(response.json<object>()).sort()).toEqual(['error', 'message', 'statusCode'])
+    } finally {
+      await conflictApp.close()
+    }
+  })
+
+  it('500s, not 409s, on an error that is not a unique violation', async () => {
+    const otherError = Object.assign(new Error('connection reset'), {
+      cause: Object.assign(new Error('connection reset'), { code: '57P01' }),
+    })
+    const brokenApp = buildApp({
+      sources: createSourcesService(fakeRepoThatThrows(otherError)),
+      users,
+    })
+    try {
+      const response = await brokenApp.inject({
+        method: 'POST',
+        url: '/sources',
+        headers: as(ALICE),
+        payload: body,
+      })
+      expect(response.statusCode).toBe(500)
+    } finally {
+      await brokenApp.close()
+    }
   })
 })
