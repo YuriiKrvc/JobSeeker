@@ -5,7 +5,6 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     environment: 'node',
     env: {
-      DATABASE_URL: 'postgres://jobseeker:jobseeker@localhost:5432/jobseeker',
       LOG_LEVEL: 'silent',
     },
   },
