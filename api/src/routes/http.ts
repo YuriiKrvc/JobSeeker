@@ -35,7 +35,7 @@ export function badRequest(reply: FastifyReply, message: string) {
   return fail(reply, 400, 'Bad Request', message)
 }
 
-export function notFound(reply: FastifyReply, message = 'No such source') {
+export function notFound(reply: FastifyReply, message = 'Not Found') {
   return fail(reply, 404, 'Not Found', message)
 }
 

@@ -47,4 +47,24 @@ describe('fetchText', () => {
       'timed out after 5ms',
     )
   })
+
+  it('returns a body under the 2MB limit normally', async () => {
+    const body = 'a'.repeat(1024 * 1024)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(body))),
+    )
+    await expect(fetchText('https://example.com', 1000)).resolves.toBe(body)
+  })
+
+  it('rejects a body over the 2MB limit with a message naming the limit', async () => {
+    const body = 'a'.repeat(2 * 1024 * 1024 + 1)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(body))),
+    )
+    await expect(fetchText('https://example.com', 1000)).rejects.toThrow(
+      /exceeded 2097152 byte limit/,
+    )
+  })
 })

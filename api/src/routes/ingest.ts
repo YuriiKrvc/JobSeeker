@@ -64,7 +64,7 @@ export async function ingestRoutes(
         // A source owned by somebody else is indistinguishable from one that
         // does not exist. A 403 would confirm the id is real.
         return result.reason === 'not-found'
-          ? notFound(reply)
+          ? notFound(reply, 'No such source')
           : conflict(reply, 'Source is disabled')
       }
       return result.summary

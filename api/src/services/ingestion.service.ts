@@ -107,13 +107,13 @@ export function createIngestionService(deps: IngestionDeps) {
       return summary
     }
 
-    summary.errors.push(...listing.errors)
-    let items = listing.items
-    if (items.length > source.maxItemsPerRun) {
-      items = items.slice(0, source.maxItemsPerRun)
-      summary.truncated = true
-    }
-    summary.fetched = items.length + listing.errors.length
+    const items = listing.items.slice(0, source.maxItemsPerRun)
+    const errors = listing.errors.slice(0, source.maxItemsPerRun)
+    summary.errors.push(...errors)
+    summary.truncated =
+      items.length < listing.items.length ||
+      errors.length < listing.errors.length
+    summary.fetched = items.length + errors.length
 
     const known = await deps.postings.findExistingUrls(userId, source.id)
     const reseen: string[] = []
@@ -148,6 +148,7 @@ export function createIngestionService(deps: IngestionDeps) {
             postedAt: null,
             blockedBy: titleHit,
           })
+          known.add(item.detailUrl)
           summary.blocked += 1
         } catch (error) {
           summary.errors.push({
@@ -180,6 +181,7 @@ export function createIngestionService(deps: IngestionDeps) {
           postedAt: parsePostedAt(detail.postedAtRaw),
           blockedBy: descriptionHit,
         })
+        known.add(item.detailUrl)
         if (descriptionHit) summary.blocked += 1
         else summary.created += 1
       } catch (error) {

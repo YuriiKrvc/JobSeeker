@@ -250,6 +250,40 @@ describe('ingestOne', () => {
     ])
   })
 
+  it('fetches a detail URL that appears twice on one listing page only once', async () => {
+    // A "featured" block plus the main list can carry the same job twice on
+    // one page. `known` is checked per item but was never updated during the
+    // loop, so the second occurrence looked unseen and got fetched (and
+    // counted as created) again. It must instead land in the already-stored
+    // path the moment the first occurrence is stored.
+    const source = sourceRow()
+    const postings = fakePostings()
+    const duplicateListing = `
+      <div class="job"><span class="title">Senior Dev</span><a class="link" href="/1">go</a></div>
+      <div class="job"><span class="title">Senior Dev</span><a class="link" href="/1">go</a></div>
+    `
+    const fetchText = pages(duplicateListing)
+    const service = createIngestionService({
+      sources: fakeSources([source]).repo,
+      postings: postings.repo,
+      users: fakeUsers(),
+      fetchText,
+      sleep: () => Promise.resolve(),
+    })
+
+    const { summary } = (await service.ingestOne(ALICE, source.id)) as {
+      summary: { created: number; updated: number }
+    }
+
+    expect(summary).toMatchObject({ created: 1, updated: 1 })
+    expect(fetchText.mock.calls.map((call) => call[0])).toEqual([
+      'https://example.com/jobs/',
+      'https://example.com/1',
+    ])
+    expect(postings.inserted).toHaveLength(1)
+    expect(postings.touched).toEqual(['https://example.com/1'])
+  })
+
   it('truncates at maxItemsPerRun and says so', async () => {
     const source = sourceRow({ maxItemsPerRun: 1 })
     const postings = fakePostings()
@@ -401,6 +435,44 @@ describe('ingestOne', () => {
     expect(summary.fetched).toBe(3)
     expect(summary.created).toBe(2)
     expect(summary.errors).toHaveLength(1)
+  })
+
+  it('caps listing errors at maxItemsPerRun too, and marks the run truncated', async () => {
+    // A listing page can hold far more unusable entries than maxItemsPerRun
+    // allows the run to account for. Only the errors list ever grows before
+    // this cap; without capping it, `fetched` and the response body both
+    // scale with the page, not with the configured limit.
+    const source = sourceRow({ maxItemsPerRun: 2 })
+    const unusable = '<div class="job"><span class="title"></span></div>'
+    const service = createIngestionService({
+      sources: fakeSources([source]).repo,
+      postings: fakePostings().repo,
+      users: fakeUsers(),
+      fetchText: pages(unusable.repeat(5)),
+      sleep: () => Promise.resolve(),
+    })
+
+    const { summary } = (await service.ingestOne(ALICE, source.id)) as {
+      summary: {
+        fetched: number
+        created: number
+        updated: number
+        blocked: number
+        truncated: boolean
+        errors: unknown[]
+      }
+    }
+
+    expect(summary.errors).toHaveLength(2)
+    expect(summary.truncated).toBe(true)
+    // The invariant: created + updated + blocked + errors.length === fetched.
+    expect(
+      summary.created +
+        summary.updated +
+        summary.blocked +
+        summary.errors.length,
+    ).toBe(summary.fetched)
+    expect(summary.fetched).toBe(2)
   })
 
   it('parses postedAt when it is a real date and keeps the raw string either way', async () => {

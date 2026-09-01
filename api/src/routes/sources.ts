@@ -80,7 +80,7 @@ export async function sourcesRoutes(
       const source = await service.get(userId, id)
       // A source owned by somebody else is indistinguishable from one that
       // does not exist. A 403 would confirm the id is real.
-      if (!source) return notFound(reply)
+      if (!source) return notFound(reply, 'No such source')
       return source
     },
   )
@@ -156,7 +156,7 @@ export async function sourcesRoutes(
       if (!parsed.success) return badRequest(reply, zodMessage(parsed.error))
       try {
         const source = await service.update(userId, id, parsed.data)
-        if (!source) return notFound(reply)
+        if (!source) return notFound(reply, 'No such source')
         return source
       } catch (error) {
         return conflictOr(reply, error)
@@ -171,7 +171,8 @@ export async function sourcesRoutes(
         tags: ['sources'],
         summary: 'Delete one of your sources',
         description:
-          'Soft — the row is retained so its postings keep resolving.',
+          'Soft — the row is retained so the foreign key stays intact, but ' +
+          'its postings are no longer returned by GET /postings.',
         security: USER_ID_SECURITY,
         params: jsonSchema(IdParams),
         // Fastify skips payload serialization for a 204 regardless of what
@@ -186,7 +187,8 @@ export async function sourcesRoutes(
       // Ajv already validated `id` against `params: jsonSchema(IdParams)`
       // above; a second parse here would be dead code.
       const { id } = request.params as z.infer<typeof IdParams>
-      if (!(await service.remove(userId, id))) return notFound(reply)
+      if (!(await service.remove(userId, id)))
+        return notFound(reply, 'No such source')
       return reply.code(204).send()
     },
   )
