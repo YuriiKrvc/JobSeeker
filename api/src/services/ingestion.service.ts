@@ -136,17 +136,28 @@ export function createIngestionService(deps: IngestionDeps) {
         // Stored rather than dropped, so the detail page is never fetched on a
         // later run and an over-eager marker stays visible. The description is
         // empty because nothing was fetched to fill it.
-        await deps.postings.upsert(userId, {
-          sourceId: source.id,
-          url: item.detailUrl,
-          title: item.title,
-          company: null,
-          description: '',
-          postedAtRaw: null,
-          postedAt: null,
-          blockedBy: titleHit,
-        })
-        summary.blocked += 1
+        //
+        // Wrapped like the detail branch's upsert below: a repository failure
+        // here must become one item's error, not an aborted run that loses
+        // every counter and skips touchLastSeen/recordRunResult.
+        try {
+          await deps.postings.upsert(userId, {
+            sourceId: source.id,
+            url: item.detailUrl,
+            title: item.title,
+            company: null,
+            description: '',
+            postedAtRaw: null,
+            postedAt: null,
+            blockedBy: titleHit,
+          })
+          summary.blocked += 1
+        } catch (error) {
+          summary.errors.push({
+            url: item.detailUrl,
+            message: messageOf(error),
+          })
+        }
         continue
       }
 

@@ -170,6 +170,35 @@ describe('ingestOne', () => {
     expect(postings.inserted[0]).toMatchObject({ blockedBy: 'senior' })
   })
 
+  it("keeps both lists when owner and source each block a different word", async () => {
+    // A source-only or owner-only case cannot tell union from "whichever list
+    // is non-empty wins" — both lists must be non-empty and disjoint so that
+    // replacement in either direction fails this test.
+    const source = sourceRow({ blockedTitleWords: ['php'] })
+    const postings = fakePostings()
+    const fetchText = pages()
+    const service = createIngestionService({
+      sources: fakeSources([source]).repo,
+      postings: postings.repo,
+      users: fakeUsers({
+        blockedTitleWords: ['senior'],
+        blockedDescriptionWords: [],
+      }),
+      fetchText,
+      sleep: () => Promise.resolve(),
+    })
+
+    const { summary } = (await service.ingestOne(ALICE, source.id)) as {
+      summary: { blocked: number; created: number }
+    }
+
+    expect(summary).toMatchObject({ blocked: 2, created: 0 })
+    // Both items are title-blocked, so no detail page is ever fetched.
+    expect(fetchText.mock.calls.map((call) => call[0])).toEqual([
+      'https://example.com/jobs/',
+    ])
+  })
+
   it('blocks on the description only after fetching the detail page', async () => {
     const source = sourceRow({ blockedDescriptionWords: ['kubernetes'] })
     const postings = fakePostings()
@@ -279,6 +308,47 @@ describe('ingestOne', () => {
     expect(postings.inserted.map((p) => p.url)).toEqual([
       'https://example.com/2',
     ])
+  })
+
+  it('keeps a failed upsert of a title-blocked posting out of the run-aborting path', async () => {
+    // The title branch's upsert must be wrapped exactly like the detail
+    // branch's: a repository failure there is one item's error, not an
+    // exception that unwinds the whole run and skips touchLastSeen /
+    // recordRunResult.
+    const source = sourceRow({ blockedTitleWords: ['php'] })
+    const sources = fakeSources([source])
+    const postings = fakePostings()
+    const realUpsert = postings.repo.upsert.bind(postings.repo)
+    postings.repo.upsert = (userId, posting) => {
+      if (posting.url === 'https://example.com/2') {
+        return Promise.reject(new Error('connection lost'))
+      }
+      return realUpsert(userId, posting)
+    }
+    const service = createIngestionService({
+      sources: sources.repo,
+      postings: postings.repo,
+      users: fakeUsers(),
+      fetchText: pages(),
+      sleep: () => Promise.resolve(),
+    })
+
+    const { summary } = (await service.ingestOne(ALICE, source.id)) as {
+      summary: {
+        created: number
+        blocked: number
+        errors: { url: string; message: string }[]
+      }
+    }
+
+    // The failed item lands in errors, not blocked; the run still completes
+    // and the other item is still processed normally.
+    expect(summary.created).toBe(1)
+    expect(summary.blocked).toBe(0)
+    expect(summary.errors).toEqual([
+      { url: 'https://example.com/2', message: 'connection lost' },
+    ])
+    expect(sources.results).toEqual([{ id: source.id, lastError: null }])
   })
 
   it('records lastError and returns fetched:0 when the listing fetch fails', async () => {
