@@ -80,13 +80,20 @@ export const SourceCreateSchema = z
 
 export type SourceCreate = z.infer<typeof SourceCreateSchema>
 
-export const SourceUpdateSchema = z
-  .object(fields)
-  .partial()
-  .strict()
-  .refine((patch) => Object.keys(patch).length > 0, {
-    message: 'Provide at least one field to update',
-  })
+/**
+ * The unrefined partial that `SourceUpdateSchema` adds its "at least one key"
+ * rule on top of. Exists so the OpenAPI document has something to publish for
+ * PATCH: `z.toJSONSchema` throws on a `.refine()`, and publishing
+ * `SourceCreateSchema.partial()` would document `default:` annotations for
+ * fields a PATCH never defaults. The handler still parses with
+ * `SourceUpdateSchema`, not this.
+ */
+export const SourceUpdateBaseSchema = z.object(fields).partial().strict()
+
+export const SourceUpdateSchema = SourceUpdateBaseSchema.refine(
+  (patch) => Object.keys(patch).length > 0,
+  { message: 'Provide at least one field to update' },
+)
 
 export type SourceUpdate = z.infer<typeof SourceUpdateSchema>
 
