@@ -130,7 +130,7 @@ describe('POST /sources', () => {
     expect(Object.keys(response.json<object>()).sort()).toEqual(['error', 'message', 'statusCode'])
   })
 
-  it('400s on a missing required selector', async () => {
+  it('400s on a missing required selector, in the same body shape as a Zod-only rejection', async () => {
     const { itemSelector: _dropped, ...withoutSelector } = body
     const response = await app.inject({
       method: 'POST',
@@ -139,6 +139,30 @@ describe('POST /sources', () => {
       payload: withoutSelector,
     })
     expect(response.statusCode).toBe(400)
+    // This one is rejected by Ajv against the published JSON Schema (a
+    // required property is missing) rather than by Zod — the pair above only
+    // ever exercises Zod against itself.
+    expect(Object.keys(response.json<object>()).sort()).toEqual(['error', 'message', 'statusCode'])
+  })
+
+  it('ignores a userId sent in the body; the header is the only source of ownership', async () => {
+    // Ajv's `removeAdditional: true` strips `userId` before Zod's `.strict()`
+    // ever sees it, so this also guards against `.strict()` being mistaken
+    // for the thing enforcing this.
+    const response = await app.inject({
+      method: 'POST',
+      url: '/sources',
+      headers: as(ALICE),
+      payload: { ...body, userId: BOB },
+    })
+    expect(response.statusCode).toBe(201)
+    const created = response.json<{ id: string }>()
+
+    const asAlice = await app.inject({ method: 'GET', url: '/sources', headers: as(ALICE) })
+    expect(asAlice.json<{ sources: { id: string }[] }>().sources.map((s) => s.id)).toContain(created.id)
+
+    const asBob = await app.inject({ method: 'GET', url: '/sources', headers: as(BOB) })
+    expect(asBob.json<{ sources: { id: string }[] }>().sources.map((s) => s.id)).not.toContain(created.id)
   })
 })
 

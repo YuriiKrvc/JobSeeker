@@ -118,8 +118,8 @@ export async function sourcesRoutes(
       schema: {
         tags: ['sources'],
         summary: 'Read one of your sources',
-        description: 'id is a uuid path parameter.',
         security: USER_ID_SECURITY,
+        params: jsonSchema(IdParams),
         response: { 200: jsonSchema(SourceResponseSchema), ...errorResponses },
       },
     },
@@ -146,6 +146,10 @@ export async function sourcesRoutes(
           'The owner comes from X-User-Id and nowhere else. The published body ' +
           'schema is looser than the real rules — see each field description.',
         security: USER_ID_SECURITY,
+        // Ajv's default `removeAdditional: true` strips a `userId` key (or any
+        // other key not in this schema) from the body before Zod ever parses
+        // it — `.strict()` below never sees it and is not what guards against
+        // it. The owner is `caller()`'s result, full stop.
         body: bodySchema(SourceCreateSchema),
         response: {
           201: jsonSchema(SourceResponseSchema),
@@ -174,10 +178,10 @@ export async function sourcesRoutes(
         tags: ['sources'],
         summary: 'Update part of one of your sources',
         description:
-          'id is a uuid path parameter. An omitted key leaves the column ' +
-          'alone; an explicit null clears an optional selector. At least one ' +
-          'key is required.',
+          'An omitted key leaves the column alone; an explicit null clears ' +
+          'an optional selector. At least one key is required.',
         security: USER_ID_SECURITY,
+        params: jsonSchema(IdParams),
         // The published body is the unrefined partial: SourceUpdateSchema
         // carries a `.refine()` and z.toJSONSchema throws on refinements.
         // The "at least one key" rule is enforced below, not by Ajv.
@@ -214,8 +218,9 @@ export async function sourcesRoutes(
       schema: {
         tags: ['sources'],
         summary: 'Delete one of your sources',
-        description: 'id is a uuid path parameter. Soft — the row is retained so its postings keep resolving.',
+        description: 'Soft — the row is retained so its postings keep resolving.',
         security: USER_ID_SECURITY,
+        params: jsonSchema(IdParams),
         // No 204 entry: a declared schema for an empty body makes
         // fast-json-stringify serialize where Fastify would send nothing.
         response: errorResponses,
