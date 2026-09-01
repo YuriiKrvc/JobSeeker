@@ -144,7 +144,10 @@ export function createPostingsRepository(): PostingsRepository {
         isNull(sources.deletedAt),
       ]
       // A filter, not a lookup: another user's sourceId simply matches nothing.
-      if (sourceId) conditions.push(eq(postings.sourceId, sourceId))
+      // Checked with `!== undefined`, not truthiness — an empty string must
+      // narrow to nothing, not silently widen to every one of the user's
+      // sources.
+      if (sourceId !== undefined) conditions.push(eq(postings.sourceId, sourceId))
       if (!includeBlocked) conditions.push(isNull(postings.blockedBy))
       const where = and(...conditions)
 

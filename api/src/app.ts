@@ -7,6 +7,7 @@ import { createSourcesRepository } from './repositories/sources.repository.js'
 import { createUsersRepository } from './repositories/users.repository.js'
 import { healthRoutes } from './routes/health.js'
 import { ingestRoutes } from './routes/ingest.js'
+import { postingsRoutes } from './routes/postings.js'
 import { sourcesRoutes } from './routes/sources.js'
 import { createIngestionService } from './services/ingestion.service.js'
 import { createPostingsService } from './services/postings.service.js'
@@ -62,6 +63,7 @@ export function buildApp(deps: AppDeps = realDeps()): FastifyInstance {
   app.register(healthRoutes)
   app.register(sourcesRoutes, { service: deps.sources, users: deps.users })
   app.register(ingestRoutes, { service: deps.ingestion, users: deps.users })
+  app.register(postingsRoutes, { service: deps.postings, users: deps.users })
 
   return app
 }

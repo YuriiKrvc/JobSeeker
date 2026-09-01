@@ -1,14 +1,17 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
-import { z } from 'zod'
-import {
-  ErrorSchema,
-  USER_ID_SECURITY,
-  bodySchema,
-  jsonSchema,
-} from '../openapi.js'
+import type { z } from 'zod'
+import { ErrorSchema, USER_ID_SECURITY, bodySchema, jsonSchema } from '../openapi.js'
 import type { UsersRepository } from '../repositories/users.repository.js'
 import type { SourcesService } from '../services/sources.service.js'
-import { badRequest, fail, makeCaller, notFound, zodMessage } from './http.js'
+import {
+  IdParams,
+  badRequest,
+  errorResponses,
+  fail,
+  makeCaller,
+  notFound,
+  zodMessage,
+} from './http.js'
 import {
   SourceCreateSchema,
   SourceListResponseSchema,
@@ -22,15 +25,8 @@ export interface SourcesRoutesOptions {
   users: UsersRepository
 }
 
-const IdParams = z.object({ id: z.uuid() })
-
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = '23505'
-
-const errorResponses = {
-  400: ErrorSchema,
-  404: ErrorSchema,
-}
 
 export async function sourcesRoutes(
   app: FastifyInstance,

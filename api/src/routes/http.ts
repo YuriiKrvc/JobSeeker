@@ -1,7 +1,17 @@
+import { z } from 'zod'
 import { USER_ID_HEADER, resolveCurrentUser } from '../auth/current-user.js'
+import { ErrorSchema } from '../openapi.js'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import type { z } from 'zod'
 import type { UsersRepository } from '../repositories/users.repository.js'
+
+/** Shared `:id` route param, used by every route keyed on a single resource. */
+export const IdParams = z.object({ id: z.uuid() })
+
+/** The pair of error statuses every route in this API can answer with. */
+export const errorResponses = {
+  400: ErrorSchema,
+  404: ErrorSchema,
+}
 
 /**
  * There is no `setErrorHandler` (see CLAUDE.md, Errors), so a route that

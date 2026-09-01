@@ -1,10 +1,6 @@
-import { z } from 'zod'
-import {
-  ErrorSchema,
-  USER_ID_SECURITY,
-  jsonSchema,
-} from '../openapi.js'
-import { conflict, makeCaller, notFound } from './http.js'
+import type { z } from 'zod'
+import { ErrorSchema, USER_ID_SECURITY, jsonSchema } from '../openapi.js'
+import { IdParams, conflict, errorResponses, makeCaller, notFound } from './http.js'
 import { BulkRunResponseSchema, RunSummarySchema } from './ingest.schema.js'
 import type { FastifyInstance } from 'fastify'
 import type { UsersRepository } from '../repositories/users.repository.js'
@@ -13,13 +9,6 @@ import type { IngestionService } from '../services/ingestion.service.js'
 export interface IngestRoutesOptions {
   service: IngestionService
   users: UsersRepository
-}
-
-const IdParams = z.object({ id: z.uuid() })
-
-const errorResponses = {
-  400: ErrorSchema,
-  404: ErrorSchema,
 }
 
 /**
