@@ -11,8 +11,14 @@ import { z } from 'zod'
  *    would then reject bodies that Zod accepts.
  */
 
-const selector = z.string().min(1).max(500)
-const attr = z.string().min(1).max(100)
+// `\S` requires at least one non-whitespace character: `min(1)` alone lets
+// a whitespace-only string through, which is a blank in disguise. A regex
+// converts to `pattern` in the published JSON Schema, unlike `.refine()`
+// (invisible to `z.toJSONSchema`) or `.trim()` (a transform the converter
+// throws on). Selectors and `name` are identity- and behavior-critical, so a
+// blank is rejected rather than silently repaired.
+const selector = z.string().regex(/\S/).min(1).max(500)
+const attr = z.string().regex(/\S/).min(1).max(100)
 const word = z.string().min(1).max(100)
 
 /**
@@ -28,6 +34,7 @@ const word = z.string().min(1).max(100)
 const fields = {
   name: z
     .string()
+    .regex(/\S/)
     .min(1)
     .max(200)
     .describe('Display label. Unique among your live sources.'),

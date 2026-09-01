@@ -40,7 +40,8 @@ function fakeRepo(): SourcesRepository {
       const now = new Date('2026-09-01T10:00:00.000Z')
       const row: SourceRow = {
         ...input,
-        id: `00000000-0000-4000-8000-00000000000${String(++next)}`,
+        // Padded to 12 hex chars so the id stays a well-formed uuid past nine rows.
+        id: `00000000-0000-4000-8000-${String(++next).padStart(12, '0')}`,
         lastRunAt: null,
         lastSuccessAt: null,
         lastError: null,
@@ -232,6 +233,26 @@ describe('POST /sources', () => {
       asBob.json<{ sources: { id: string }[] }>().sources.map((s) => s.id),
     ).not.toContain(created.id)
   })
+
+  it('400s on a whitespace-only name', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/sources',
+      headers: as(ALICE),
+      payload: { ...body, name: '   ' },
+    })
+    expect(response.statusCode).toBe(400)
+  })
+
+  it('400s on a whitespace-only required selector', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/sources',
+      headers: as(ALICE),
+      payload: { ...body, itemSelector: '   ' },
+    })
+    expect(response.statusCode).toBe(400)
+  })
 })
 
 describe('GET /sources', () => {
@@ -349,12 +370,20 @@ describe('PATCH and DELETE', () => {
 describe('openapi document', () => {
   it('documents every sources path with its security requirement', async () => {
     const doc = (await app.inject({ method: 'GET', url: '/docs/json' })).json<{
-      paths: Record<string, Record<string, { security?: unknown }>>
+      paths: Record<
+        string,
+        Record<
+          string,
+          { security?: unknown; responses?: Record<string, unknown> }
+        >
+      >
     }>()
     expect(Object.keys(doc.paths)).toEqual(
       expect.arrayContaining(['/sources', '/sources/{id}']),
     )
     expect(doc.paths['/sources']?.post?.security).toEqual([{ userId: [] }])
+    // DELETE must declare its success status, not only its error statuses.
+    expect(doc.paths['/sources/{id}']?.delete?.responses).toHaveProperty('204')
   })
 })
 

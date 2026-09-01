@@ -58,14 +58,7 @@ function zodMessage(error: z.ZodError): string {
     .join('; ')
 }
 
-/**
- * Typed as `Record<number, unknown>` rather than left to infer `{400: ...,
- * 404: ...}`: Fastify derives the set of status codes `reply.code()` accepts
- * from the literal keys of `schema.response`, and DELETE's route sends a 204
- * that is deliberately not one of these two keys (see the DELETE route
- * below).
- */
-const errorResponses: Record<number, unknown> = {
+const errorResponses = {
   400: ErrorSchema,
   404: ErrorSchema,
 }
@@ -93,16 +86,6 @@ export async function sourcesRoutes(
       await notFound(reply, result.message)
     }
     return null
-  }
-
-  /** Route params are uuids; anything else is a 400, not a lookup miss. */
-  function params(request: FastifyRequest, reply: FastifyReply): string | null {
-    const parsed = IdParams.safeParse(request.params)
-    if (!parsed.success) {
-      void badRequest(reply, 'id must be a uuid')
-      return null
-    }
-    return parsed.data.id
   }
 
   app.get(
@@ -140,8 +123,9 @@ export async function sourcesRoutes(
     async (request, reply) => {
       const userId = await caller(request, reply)
       if (!userId) return
-      const id = params(request, reply)
-      if (!id) return
+      // Ajv already validated `id` against `params: jsonSchema(IdParams)`
+      // above; a second parse here would be dead code.
+      const { id } = request.params as z.infer<typeof IdParams>
       const source = await service.get(userId, id)
       // A source owned by somebody else is indistinguishable from one that
       // does not exist. A 403 would confirm the id is real.
@@ -212,8 +196,9 @@ export async function sourcesRoutes(
     async (request, reply) => {
       const userId = await caller(request, reply)
       if (!userId) return
-      const id = params(request, reply)
-      if (!id) return
+      // Ajv already validated `id` against `params: jsonSchema(IdParams)`
+      // above; a second parse here would be dead code.
+      const { id } = request.params as z.infer<typeof IdParams>
       // Parsed against the refined schema, not the one published above — the
       // "at least one key" rule is not expressible in JSON Schema.
       const parsed = SourceUpdateSchema.safeParse(request.body)
@@ -238,16 +223,18 @@ export async function sourcesRoutes(
           'Soft — the row is retained so its postings keep resolving.',
         security: USER_ID_SECURITY,
         params: jsonSchema(IdParams),
-        // No 204 entry: a declared schema for an empty body makes
-        // fast-json-stringify serialize where Fastify would send nothing.
-        response: errorResponses,
+        // Fastify skips payload serialization for a 204 regardless of what
+        // is declared here, so this documents the response without
+        // affecting the (empty) body the handler actually sends.
+        response: { 204: { description: 'Deleted' }, ...errorResponses },
       },
     },
     async (request, reply) => {
       const userId = await caller(request, reply)
       if (!userId) return
-      const id = params(request, reply)
-      if (!id) return
+      // Ajv already validated `id` against `params: jsonSchema(IdParams)`
+      // above; a second parse here would be dead code.
+      const { id } = request.params as z.infer<typeof IdParams>
       if (!(await service.remove(userId, id))) return notFound(reply)
       return reply.code(204).send()
     },
