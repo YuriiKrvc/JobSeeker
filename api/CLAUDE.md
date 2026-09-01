@@ -41,6 +41,10 @@ and ships no `.env` file works unchanged. Anything else that imports
 process exits with `Invalid environment`. `vitest.config.ts` sidesteps this by
 setting the vars itself.
 
+The URL there points at the same local Postgres as `.env.example`, but nothing
+in the unit suite connects: `postgres.js` opens a socket on first query, and
+tests inject fake repositories rather than the real ones.
+
 ## Stack
 
 Node 22 + TypeScript (ESM, `NodeNext`), Fastify 5, Drizzle ORM over
