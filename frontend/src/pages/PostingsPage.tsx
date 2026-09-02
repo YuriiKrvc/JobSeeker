@@ -121,14 +121,14 @@ const PostingsPage = () => {
         setOffset(nextOffset + data.items.length)
         setPostings((current) => {
           if (!append) return data.items
-          // Ingestion runs every 30 minutes and inserts at the top of
-          // `first_seen_at DESC`, so rows shift down between one request and
-          // the next and an offset window can re-serve rows already on
-          // screen. Without this, a background run makes duplicate rows
-          // appear mid-list. The converse — a shift large enough to skip a
-          // row entirely — is not fixable with offset paging; it needs cursor
-          // paging, and it is not worth an API change for a 30-minute
-          // schedule.
+          // Ingestion inserts at the top of `first_seen_at DESC` — on demand
+          // today, and on a 30-minute schedule once that lands — so rows
+          // shift down between one request and the next and an offset window
+          // can re-serve rows already on screen. Without this, an ingestion
+          // run makes duplicate rows appear mid-list. The converse — a shift
+          // large enough to skip a row entirely — is not fixable with offset
+          // paging; it needs cursor paging, and it is not worth an API change
+          // for this.
           const seen = new Set(current.map((posting) => posting.id))
           return [
             ...current,
@@ -283,7 +283,13 @@ const PostingsPage = () => {
           />
           {postings.length < total ? (
             <Flex justify="center" style={{ marginTop: 16 }}>
+              {/* `loading` means a replace is in flight, during which `offset`
+                  and `total` still describe the previous query. An append
+                  started now would take a later request id and supersede
+                  the reload, pasting one query's rows onto another's, so the
+                  button stays disabled until the replace settles. */}
               <Button
+                disabled={loading}
                 loading={loadingMore}
                 onClick={() => void load(offset, { append: true })}
               >

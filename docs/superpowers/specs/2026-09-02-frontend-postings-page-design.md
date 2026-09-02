@@ -167,10 +167,11 @@ discarded, because appending across a filter change leaves a mixed list.
 `load()` therefore takes `(offset, { append })` and appends only when explicitly
 told to; the filter effect calls it with `append: false`.
 
-**Appending dedupes by `id`.** Ingestion runs every 30 minutes and inserts at
-the top of `first_seen_at DESC`, so rows shift down between one request and the
-next. Offset paging over a moving list will re-serve rows already on screen;
-without the dedupe, a background run makes duplicate rows appear mid-list.
+**Appending dedupes by `id`.** Ingestion inserts at the top of
+`first_seen_at DESC` — on demand today, and on a 30-minute schedule once that
+lands — so rows shift down between one request and the next. Offset paging
+over a moving list will re-serve rows already on screen; without the dedupe,
+an ingestion run makes duplicate rows appear mid-list.
 
 **Load more is rendered only when `items.length < total`.** Because `total`
 ignores limit and offset, this is exact — there is no button that turns out to

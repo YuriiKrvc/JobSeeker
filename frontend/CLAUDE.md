@@ -36,10 +36,11 @@ at the site first:
   race to do one job. Appending across a filter change is what this prevents,
   and it shows up as a list mixing two sources.
 - **Appending in `PostingsPage.tsx` dedupes by `id`, on purpose.** Ingestion
-  inserts at the top of `first_seen_at DESC`, so an offset window re-serves
-  rows already on screen and duplicates appear mid-list without it. The
-  converse — a shift large enough to skip a row — is not fixable with offset
-  paging and is knowingly accepted.
+  inserts at the top of `first_seen_at DESC` — on demand today, and on a
+  30-minute schedule once that lands — so an offset window re-serves rows
+  already on screen and duplicates appear mid-list without it. The converse —
+  a shift large enough to skip a row — is not fixable with offset paging and
+  is knowingly accepted.
 - **A posting's `description` is never rendered as HTML.** It is scraped from a
   third-party page; `dangerouslySetInnerHTML` there would let any job board run
   script in this app. `PostingDescriptionModal` renders it as text with
@@ -102,9 +103,9 @@ src/
 `main.tsx` is the only place providers are composed, and it owns the route
 table. `pages/` is one file per route; `components/` is everything shared.
 
-`src/services/` is the boundary. Components call the functions in `sources.ts` and
-catch `ApiError`; nothing above that layer touches `fetch` or knows the header
-exists.
+`src/services/` is the boundary. Components call the functions in `sources.ts`
+and `postings.ts` and catch `ApiError`; nothing above that layer touches
+`fetch` or knows the header exists.
 
 ## The `/api` prefix is a dev-server fiction
 
