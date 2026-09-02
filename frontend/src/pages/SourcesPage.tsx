@@ -1,4 +1,9 @@
-import { PlusOutlined } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  EditOutlined,
+  PlayCircleOutlined,
+  PlusOutlined,
+} from '@ant-design/icons'
 import {
   App,
   Alert,
@@ -15,15 +20,53 @@ import {
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { Source } from '../services/sources'
-import { deleteSource, listSources, updateSource } from '../services/sources'
+import type { RunSummary, Source } from '../services/sources'
+import {
+  deleteSource,
+  listSources,
+  runSource,
+  updateSource,
+} from '../services/sources'
 import SourceFormModal from '../components/SourceFormModal'
 
+/** A copy of `current` without `id`. Module scope so it is not a hook dependency. */
+const without = (current: Set<string>, id: string) => {
+  const next = new Set(current)
+  next.delete(id)
+  return next
+}
+
+/** A run with nothing the user needs to know about beyond the counts. */
+const isRunClean = (summary: RunSummary) =>
+  !summary.truncated && summary.errors.length === 0
+
+/**
+ * One finished run as one line. `blocked` is omitted when zero because most
+ * runs block nothing and the line reads better without it; `created` and
+ * `updated` always appear, so "0 new, 0 unchanged" still says the run happened.
+ */
+const describeRun = (name: string, summary: RunSummary): string => {
+  const counts = [`${summary.created} new`, `${summary.updated} unchanged`]
+  if (summary.blocked > 0) counts.push(`${summary.blocked} blocked`)
+
+  const notes: string[] = []
+  if (summary.truncated) notes.push('truncated')
+  if (summary.errors.length === 1) notes.push('1 item failed')
+  else if (summary.errors.length > 1) {
+    notes.push(`${summary.errors.length} items failed`)
+  }
+
+  const suffix = notes.length > 0 ? ` (${notes.join(', ')})` : ''
+  return `${name}: ${counts.join(', ')}${suffix}`
+}
+
 const buildColumns = (
+  onRun: (source: Source) => void,
   onEdit: (source: Source) => void,
   onToggle: (source: Source, enabled: boolean) => void,
   onDelete: (source: Source) => void,
   pending: Set<string>,
+  running: Set<string>,
 ): TableProps<Source>['columns'] => [
   {
     title: 'Name',
@@ -79,18 +122,32 @@ const buildColumns = (
     },
   },
   {
+    // Icon-only, so every button carries both a tooltip for the mouse and an
+    // aria-label for anything that cannot see one.
     title: 'Actions',
     key: 'actions',
-    width: 160,
+    width: 120,
     render: (_, source) => (
-      <>
-        <Button
-          type="link"
-          disabled={pending.has(source.id)}
-          onClick={() => onEdit(source)}
-        >
-          Edit
-        </Button>
+      <Flex gap={4}>
+        <Tooltip title="Run now">
+          <Button
+            type="text"
+            aria-label="Run now"
+            icon={<PlayCircleOutlined />}
+            loading={running.has(source.id)}
+            disabled={pending.has(source.id)}
+            onClick={() => onRun(source)}
+          />
+        </Tooltip>
+        <Tooltip title="Edit">
+          <Button
+            type="text"
+            aria-label="Edit"
+            icon={<EditOutlined />}
+            disabled={pending.has(source.id)}
+            onClick={() => onEdit(source)}
+          />
+        </Tooltip>
         <Popconfirm
           title="Delete this source?"
           description="Its postings stop appearing. This cannot be undone."
@@ -98,11 +155,17 @@ const buildColumns = (
           okButtonProps={{ danger: true }}
           onConfirm={() => onDelete(source)}
         >
-          <Button type="link" danger disabled={pending.has(source.id)}>
-            Delete
-          </Button>
+          <Tooltip title="Delete">
+            <Button
+              type="text"
+              danger
+              aria-label="Delete"
+              icon={<DeleteOutlined />}
+              disabled={pending.has(source.id)}
+            />
+          </Tooltip>
         </Popconfirm>
-      </>
+      </Flex>
     ),
   },
 ]
@@ -171,6 +234,10 @@ const SourcesPage = () => {
   const { message } = App.useApp()
   /** Ids with a row-level request in flight, so only that row shows a spinner. */
   const [pending, setPending] = useState<Set<string>>(new Set())
+  // `pending` disables a row's buttons whichever request is running, so it
+  // cannot drive the Run spinner — a toggle would spin the Run button too.
+  // This tracks only runs.
+  const [running, setRunning] = useState<Set<string>>(new Set())
 
   const withPending = useCallback(
     async (id: string, action: () => Promise<unknown>) => {
@@ -183,11 +250,7 @@ const SourcesPage = () => {
           caught instanceof Error ? caught.message : 'The request failed',
         )
       } finally {
-        setPending((current) => {
-          const next = new Set(current)
-          next.delete(id)
-          return next
-        })
+        setPending((current) => without(current, id))
       }
     },
     [load, message],
@@ -199,6 +262,27 @@ const SourcesPage = () => {
     [withPending],
   )
 
+  // A run holds the connection for `maxItemsPerRun x detailDelayMs` — minutes,
+  // not seconds — so the row stays spinning that whole time. A disabled source
+  // is left clickable: the API's 409 arrives as "Source is disabled" through
+  // `withPending`'s error path, which is the message we would have written
+  // anyway.
+  const run = useCallback(
+    (source: Source) =>
+      void withPending(source.id, async () => {
+        setRunning((current) => new Set(current).add(source.id))
+        try {
+          const summary = await runSource(source.id)
+          const text = describeRun(source.name, summary)
+          if (isRunClean(summary)) message.success(text)
+          else message.warning(text)
+        } finally {
+          setRunning((current) => without(current, source.id))
+        }
+      }),
+    [withPending, message],
+  )
+
   const remove = useCallback(
     (source: Source) =>
       void withPending(source.id, async () => {
@@ -208,19 +292,20 @@ const SourcesPage = () => {
     [withPending, message],
   )
 
-  // `toggle` and `remove` never read `requestIdRef` themselves — it's `load`,
+  // `run`, `toggle` and `remove` never read `requestIdRef` themselves — it's `load`,
   // several closures downstream, that does — but `react-hooks/refs` walks the
   // whole call graph and flags any function reachable from a ref read being
   // passed to something invoked during render (this `useMemo` factory).
-  // `buildColumns` only stores these as event-handler closures (Switch
-  // `onChange`, Popconfirm `onConfirm`) and never calls them synchronously
+  // `buildColumns` only stores these as event-handler closures (Button
+  // `onClick`, Switch `onChange`, Popconfirm `onConfirm`) and never calls them
+  // synchronously
   // while building the column list, so the ref is never actually touched
   // during render; the rule can't see that, so it's disabled per-line here
   // rather than restructured.
   const columns = useMemo(
     // eslint-disable-next-line react-hooks/refs
-    () => buildColumns(openEdit, toggle, remove, pending),
-    [openEdit, toggle, remove, pending],
+    () => buildColumns(run, openEdit, toggle, remove, pending, running),
+    [run, openEdit, toggle, remove, pending, running],
   )
 
   return (

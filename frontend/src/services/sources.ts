@@ -77,3 +77,34 @@ export function updateSource(
 export function deleteSource(id: string): Promise<void> {
   return request<void>(`/sources/${id}`, { method: 'DELETE' })
 }
+
+/**
+ * One unusable listing item, or one detail page that could not be fetched.
+ * Transcribed from api/src/routes/ingest.schema.ts.
+ */
+export interface ItemError {
+  url: string
+  message: string
+}
+
+/** What one finished run reports. `created + updated + blocked + errors.length === fetched`. */
+export interface RunSummary {
+  sourceId: string
+  fetched: number
+  created: number
+  updated: number
+  blocked: number
+  /** True when maxItemsPerRun cut the listing short. */
+  truncated: boolean
+  errors: ItemError[]
+}
+
+/**
+ * Scrapes one source and answers only when the run finishes — roughly
+ * `maxItemsPerRun x detailDelayMs`, so ~100s at the defaults. A listing page
+ * that cannot be fetched is still a success with the failure in `errors`; a
+ * disabled source is an ApiError with status 409.
+ */
+export function runSource(id: string): Promise<RunSummary> {
+  return request<RunSummary>(`/sources/${id}/ingest`, { method: 'POST' })
+}
