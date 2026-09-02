@@ -9,9 +9,9 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 
-import { ApiError } from '../api/client'
-import type { Source } from '../api/sources'
-import { createSource, updateSource } from '../api/sources'
+import { ApiError } from '../services/client'
+import type { Source } from '../services/sources'
+import { createSource, updateSource } from '../services/sources'
 import {
   CREATE_DEFAULTS,
   DELAY_RULES,

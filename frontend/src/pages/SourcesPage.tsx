@@ -15,8 +15,8 @@ import {
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { Source } from '../api/sources'
-import { deleteSource, listSources, updateSource } from '../api/sources'
+import type { Source } from '../services/sources'
+import { deleteSource, listSources, updateSource } from '../services/sources'
 import SourceFormModal from '../components/SourceFormModal'
 
 const buildColumns = (

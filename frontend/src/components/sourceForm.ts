@@ -1,6 +1,6 @@
 import type { FormRule } from 'antd'
 
-import type { Source, SourceInput } from '../api/sources'
+import type { Source, SourceInput } from '../services/sources'
 
 /**
  * Validation rules transcribed from api/src/routes/sources.schema.ts.

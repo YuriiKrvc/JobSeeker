@@ -8,7 +8,7 @@ This version may contain breaking changes. The component APIs, conventions, and 
 `/sources` is a working screen: it lists, creates, edits, deletes and toggles
 sources against the API. `/postings` is still a placeholder.
 
-`src/api/client.ts` is the only file that calls `fetch`. It owns the `/api`
+`src/services/client.ts` is the only file that calls `fetch`. It owns the `/api`
 prefix, the `X-User-Id` header (from `VITE_USER_ID` — copy `.env.example` to
 `.env.local`) and the `ApiError` every caller catches. See
 `docs/superpowers/specs/2026-09-02-frontend-sources-page-design.md`.
@@ -71,7 +71,7 @@ src/
 `main.tsx` is the only place providers are composed, and it owns the route
 table. `pages/` is one file per route; `components/` is everything shared.
 
-`src/api/` is the boundary. Components call the functions in `sources.ts` and
+`src/services/` is the boundary. Components call the functions in `sources.ts` and
 catch `ApiError`; nothing above that layer touches `fetch` or knows the header
 exists.
 
