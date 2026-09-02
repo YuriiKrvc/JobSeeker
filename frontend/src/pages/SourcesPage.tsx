@@ -1,14 +1,29 @@
 import { PlusOutlined } from '@ant-design/icons'
-import { Alert, Button, Empty, Flex, Table, Tag, Tooltip, Typography } from 'antd'
+import {
+  App,
+  Alert,
+  Button,
+  Empty,
+  Flex,
+  Popconfirm,
+  Switch,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd'
 import type { TableProps } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { Source } from '../api/sources'
-import { listSources } from '../api/sources'
+import { deleteSource, listSources, updateSource } from '../api/sources'
 import SourceFormModal from '../components/SourceFormModal'
 
 const buildColumns = (
   onEdit: (source: Source) => void,
+  onToggle: (source: Source, enabled: boolean) => void,
+  onDelete: (source: Source) => void,
+  pending: Set<string>,
 ): TableProps<Source>['columns'] => [
   {
     title: 'Name',
@@ -31,10 +46,12 @@ const buildColumns = (
     dataIndex: 'enabled',
     key: 'enabled',
     width: 110,
-    render: (enabled: boolean) => (
-      <Tag color={enabled ? 'green' : 'default'}>
-        {enabled ? 'Enabled' : 'Disabled'}
-      </Tag>
+    render: (enabled: boolean, source) => (
+      <Switch
+        checked={enabled}
+        loading={pending.has(source.id)}
+        onChange={(checked) => onToggle(source, checked)}
+      />
     ),
   },
   {
@@ -64,11 +81,24 @@ const buildColumns = (
   {
     title: 'Actions',
     key: 'actions',
-    width: 120,
+    width: 160,
     render: (_, source) => (
-      <Button type="link" onClick={() => onEdit(source)}>
-        Edit
-      </Button>
+      <>
+        <Button type="link" onClick={() => onEdit(source)}>
+          Edit
+        </Button>
+        <Popconfirm
+          title="Delete this source?"
+          description="Its postings stop appearing. This cannot be undone."
+          okText="Delete"
+          okButtonProps={{ danger: true }}
+          onConfirm={() => onDelete(source)}
+        >
+          <Button type="link" danger>
+            Delete
+          </Button>
+        </Popconfirm>
+      </>
     ),
   },
 ]
@@ -85,10 +115,10 @@ const SourcesPage = () => {
     setModalOpen(true)
   }
 
-  const openEdit = (source: Source) => {
+  const openEdit = useCallback((source: Source) => {
     setEditing(source)
     setModalOpen(true)
-  }
+  }, [])
 
   // `load` is self-contained: it resets loading/error itself so it is safe
   // to call from anywhere (the mount effect, the Retry button, and later a
@@ -120,6 +150,51 @@ const SourcesPage = () => {
     void load()
   }, [load])
 
+  const { message } = App.useApp()
+  /** Ids with a row-level request in flight, so only that row shows a spinner. */
+  const [pending, setPending] = useState<Set<string>>(new Set())
+
+  const withPending = useCallback(
+    async (id: string, action: () => Promise<unknown>) => {
+      setPending((current) => new Set(current).add(id))
+      try {
+        await action()
+        await load()
+      } catch (caught) {
+        message.error(
+          caught instanceof Error ? caught.message : 'The request failed',
+        )
+      } finally {
+        setPending((current) => {
+          const next = new Set(current)
+          next.delete(id)
+          return next
+        })
+      }
+    },
+    [load, message],
+  )
+
+  const toggle = useCallback(
+    (source: Source, enabled: boolean) =>
+      void withPending(source.id, () => updateSource(source.id, { enabled })),
+    [withPending],
+  )
+
+  const remove = useCallback(
+    (source: Source) =>
+      void withPending(source.id, async () => {
+        await deleteSource(source.id)
+        message.success(`Deleted ${source.name}`)
+      }),
+    [withPending, message],
+  )
+
+  const columns = useMemo(
+    () => buildColumns(openEdit, toggle, remove, pending),
+    [openEdit, toggle, remove, pending],
+  )
+
   return (
     <>
       <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
@@ -145,7 +220,7 @@ const SourcesPage = () => {
       ) : (
         <Table<Source>
           rowKey="id"
-          columns={buildColumns(openEdit)}
+          columns={columns}
           dataSource={sources}
           loading={loading}
           pagination={false}
