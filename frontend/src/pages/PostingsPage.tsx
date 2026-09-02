@@ -2,6 +2,7 @@ import { Alert, Button, Empty, Flex, Select, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import PostingDescriptionModal from '../components/PostingDescriptionModal'
 import type { Posting } from '../services/postings'
 import { listPostings } from '../services/postings'
 import type { Source } from '../services/sources'
@@ -29,6 +30,7 @@ const formatPostedAt = (postedAt: string | null) =>
  */
 const buildColumns = (
   sourceNames: Map<string, string>,
+  onShowDescription: (posting: Posting) => void,
 ): TableProps<Posting>['columns'] => [
   {
     title: 'Title',
@@ -66,6 +68,16 @@ const buildColumns = (
     width: 130,
     render: formatPostedAt,
   },
+  {
+    title: '',
+    key: 'actions',
+    width: 130,
+    render: (_, posting) => (
+      <Button type="link" onClick={() => onShowDescription(posting)}>
+        Description
+      </Button>
+    ),
+  },
 ]
 
 const PostingsPage = () => {
@@ -81,6 +93,9 @@ const PostingsPage = () => {
   // gap.
   const [offset, setOffset] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
+  // One variable, not an `open` boolean beside a posting: openness and content
+  // cannot then disagree.
+  const [showing, setShowing] = useState<Posting | null>(null)
 
   // Retry can be pressed while a load is already in flight, so two GETs can be
   // outstanding at once and can resolve in either order. `requestId` tags each
@@ -200,7 +215,10 @@ const PostingsPage = () => {
     [sources],
   )
 
-  const columns = useMemo(() => buildColumns(sourceNames), [sourceNames])
+  const columns = useMemo(
+    () => buildColumns(sourceNames, setShowing),
+    [sourceNames],
+  )
 
   return (
     <>
@@ -275,6 +293,12 @@ const PostingsPage = () => {
           ) : null}
         </>
       )}
+      {showing ? (
+        <PostingDescriptionModal
+          posting={showing}
+          onClose={() => setShowing(null)}
+        />
+      ) : null}
     </>
   )
 }
