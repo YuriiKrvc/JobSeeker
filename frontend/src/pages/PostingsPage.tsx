@@ -127,6 +127,20 @@ const PostingsPage = () => {
               ? caught.message
               : 'Could not load postings',
           )
+          // A failed replace leaves nothing trustworthy on screen: those rows
+          // belong to the previous query, not the one that just failed. Dropping
+          // them is what keeps a failed filter switch honest — and it is what
+          // makes the render's "error and no rows" test hide the table for a
+          // failed reload, not only for a failed first load. Resetting `total`
+          // and `offset` with them also retires the Load-more button, which
+          // would otherwise append the new filter's rows at the old filter's
+          // offset. An append failure deliberately keeps everything: those rows
+          // DO belong to the current filter.
+          if (!append) {
+            setPostings([])
+            setTotal(0)
+            setOffset(0)
+          }
         }
       } finally {
         if (id === requestIdRef.current) {
