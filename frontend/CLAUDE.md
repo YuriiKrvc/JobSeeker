@@ -6,14 +6,16 @@ This version may contain breaking changes. The component APIs, conventions, and 
 ## Status
 
 `/sources` is a working screen: it lists, creates, edits, deletes and toggles
-sources against the API. `/postings` is still a placeholder.
+sources against the API. `/postings` is a working screen too: a feed you triage
+— dense table, source filter, load-more paging, and the scraped description in
+a modal. See `docs/superpowers/specs/2026-09-02-frontend-postings-page-design.md`.
 
 `src/services/client.ts` is the only file that calls `fetch`. It owns the `/api`
 prefix, the `X-User-Id` header (from `VITE_USER_ID` — copy `.env.example` to
 `.env.local`) and the `ApiError` every caller catches. See
 `docs/superpowers/specs/2026-09-02-frontend-sources-page-design.md`.
 
-Two things a future cleanup pass should not "fix" without reading the comment
+Six things a future cleanup pass should not "fix" without reading the comment
 at the site first:
 
 - `SourcesPage.tsx` and `SourceFormModal.tsx` each carry an
@@ -26,6 +28,34 @@ at the site first:
   call with a request id so an out-of-order response is dropped. It is
   deliberately safe to call from anywhere (mount, Retry, post-mutation
   reload); call sites must not reintroduce their own resets.
+- **`load()` in `PostingsPage.tsx` resets the feed whenever `sourceId`
+  changes**, and it does so through its own `useCallback` dependency rather
+  than a separate effect: `load` closes over `sourceId`, so a filter change
+  produces a new `load`, re-runs the effect that depends on it, and refetches
+  at `offset: 0`. Do not add a reset effect beside it — two mechanisms would
+  race to do one job. Appending across a filter change is what this prevents,
+  and it shows up as a list mixing two sources.
+- **Appending in `PostingsPage.tsx` dedupes by `id`, on purpose.** Ingestion
+  inserts at the top of `first_seen_at DESC`, so an offset window re-serves
+  rows already on screen and duplicates appear mid-list without it. The
+  converse — a shift large enough to skip a row — is not fixable with offset
+  paging and is knowingly accepted.
+- **A posting's `description` is never rendered as HTML.** It is scraped from a
+  third-party page; `dangerouslySetInnerHTML` there would let any job board run
+  script in this app. `PostingDescriptionModal` renders it as text with
+  `pre-wrap`.
+- **The error `Alert` renders *above* a table that stays mounted, and a failed
+  *replace* clears the feed while a failed *append* does not.** `/postings`
+  deliberately diverges from `/sources` here, which replaces its table with the
+  Alert. Two rules, and both are load-bearing: a failed "Load more" must leave
+  the rows already on screen intact (they belong to the current filter), so the
+  table cannot be unmounted by an error; but a failed reload — a filter switch,
+  say — must clear `postings`, `total` and `offset`, because those rows belong
+  to the *previous* query and showing them under the new filter asserts
+  something false. The clear lives inside `load`'s request-id guard so a
+  superseded response cannot blank a newer one's rows. The table is hidden only
+  when there is an error and no rows at all, which is what keeps a failed first
+  load from claiming "No postings yet".
 
 ## Commands
 
@@ -61,9 +91,10 @@ Three version facts that will bite you:
 ```
 src/
   main.tsx                  ConfigProvider > App > BrowserRouter > routes
-  api/                      client.ts (fetch, ApiError), sources.ts (CRUD calls)
+  services/                 client.ts (fetch, ApiError), sources.ts, postings.ts
   components/AppLayout.tsx      Header, Sider menu, Content with <Outlet />
   components/SourceFormModal.tsx  create/edit modal for one source
+  components/PostingDescriptionModal.tsx  one posting's description, as text
   components/sourceForm.ts        validation rules, defaults, toInput/toFormValues/diffInput
   pages/                    one component per route
 ```

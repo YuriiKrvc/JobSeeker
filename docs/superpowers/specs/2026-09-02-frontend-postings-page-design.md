@@ -1,7 +1,7 @@
 # Frontend postings page: a feed you triage
 
 Date: 2026-09-02
-Status: designed
+Status: implemented
 
 ## Problem
 

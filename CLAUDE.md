@@ -8,8 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 front of Postgres. Scraping runs only on request — there is no schedule yet.
 Its commands, layout, and layering rules live in **`api/CLAUDE.md`**.
 `frontend/` has a working sources screen — full CRUD against `/sources` — and
-a placeholder postings page. Its commands and conventions live in
-**`frontend/CLAUDE.md`**.
+a working postings screen: a filterable, paged feed over `GET /postings`. Its
+commands and conventions live in **`frontend/CLAUDE.md`**.
 
 Each subproject owns its own `CLAUDE.md`, and Claude Code loads them
 automatically when it touches files in that directory. There is no import
