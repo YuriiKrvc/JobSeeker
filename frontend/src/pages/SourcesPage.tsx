@@ -2,7 +2,6 @@ import { Alert, Button, Empty, Table, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 
-import { ApiError } from '../api/client'
 import type { Source } from '../api/sources'
 import { listSources } from '../api/sources'
 
@@ -65,39 +64,34 @@ const SourcesPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Loading/error reset lives at call sites (the initial effect already has
-  // loading true and no error; the Retry button resets both before calling),
-  // not here: setting state synchronously inside an effect body is what
-  // react-hooks/set-state-in-effect forbids. Everything below runs after the
-  // `await`, inside a promise continuation, which the rule permits.
+  // `load` is self-contained: it resets loading/error itself so it is safe
+  // to call from anywhere (the mount effect, the Retry button, and later a
+  // post-mutation reload) without the caller having to remember to reset
+  // first.
   const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
       setSources(await listSources())
     } catch (caught) {
       // An ApiError carries the API's own message; anything else is a network
       // or programming fault and its message is the best we have.
-      setError(
-        caught instanceof ApiError || caught instanceof Error
-          ? caught.message
-          : 'Could not load sources',
-      )
+      setError(caught instanceof Error ? caught.message : 'Could not load sources')
     } finally {
       setLoading(false)
     }
   }, [])
 
-  // The IIFE is what react-hooks/set-state-in-effect requires: calling
-  // `load` directly (`void load()`) is flagged because the analyzer doesn't
-  // know it never sets state before its first `await`. Wrapping it in
-  // `async () => { await load() }` satisfies the analyzer. This alone would
-  // be pure appeasement if `load` still reset state synchronously at the
-  // top — the reset lives at the call sites (see `load` above and the Retry
-  // handler below) specifically so no setState ever runs synchronously in
-  // this effect body. Do not "simplify" this back to `void load()`.
+  // `load` resets loading/error before awaiting. On mount both are already at
+  // those values, so React bails out of the re-render and nothing cascades —
+  // which is the harm `set-state-in-effect` exists to prevent. The rule flags
+  // any effect calling a function that mentions setState anywhere, so it
+  // cannot see that. Disabled here rather than restructured: ESLint 9 reports
+  // unused disable directives, so this line disappears on its own if the rule
+  // ever learns to tell the difference.
   useEffect(() => {
-    void (async () => {
-      await load()
-    })()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load()
   }, [load])
 
   return (
@@ -110,14 +104,7 @@ const SourcesPage = () => {
           title="Could not load sources"
           description={error}
           action={
-            <Button
-              size="small"
-              onClick={() => {
-                setLoading(true)
-                setError(null)
-                void load()
-              }}
-            >
+            <Button size="small" onClick={() => void load()}>
               Retry
             </Button>
           }
