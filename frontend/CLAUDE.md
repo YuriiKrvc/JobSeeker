@@ -5,10 +5,27 @@ This version may contain breaking changes. The component APIs, conventions, and 
 
 ## Status
 
-Scaffold only. The app boots, renders an antd `Layout` shell, and routes
-between two placeholder pages. **Nothing calls the API yet** — there is no
-fetch, no API client, and no handling of `X-User-Id`. See
-`docs/superpowers/specs/2026-09-02-frontend-scaffold-design.md`.
+`/sources` is a working screen: it lists, creates, edits, deletes and toggles
+sources against the API. `/postings` is still a placeholder.
+
+`src/api/client.ts` is the only file that calls `fetch`. It owns the `/api`
+prefix, the `X-User-Id` header (from `VITE_USER_ID` — copy `.env.example` to
+`.env.local`) and the `ApiError` every caller catches. See
+`docs/superpowers/specs/2026-09-02-frontend-sources-page-design.md`.
+
+Two things a future cleanup pass should not "fix" without reading the comment
+at the site first:
+
+- `SourcesPage.tsx` and `SourceFormModal.tsx` each carry an
+  `eslint-disable-next-line react-hooks/set-state-in-effect`, and
+  `SourcesPage.tsx` also carries one for `react-hooks/refs`. Each is a
+  documented false positive — `eslint-plugin-react-hooks` v7's compiler-derived
+  rules are strict about refs and effects and cannot see the reasoning
+  explained at each site.
+- `load()` in `SourcesPage.tsx` resets its own `loading`/`error` and tags each
+  call with a request id so an out-of-order response is dropped. It is
+  deliberately safe to call from anywhere (mount, Retry, post-mutation
+  reload); call sites must not reintroduce their own resets.
 
 ## Commands
 
@@ -44,12 +61,17 @@ Three version facts that will bite you:
 ```
 src/
   main.tsx                  ConfigProvider > App > BrowserRouter > routes
+  api/                      client.ts (fetch, ApiError), sources.ts (CRUD calls)
   components/AppLayout.tsx  Header, Sider menu, Content with <Outlet />
   pages/                    one component per route
 ```
 
 `main.tsx` is the only place providers are composed, and it owns the route
 table. `pages/` is one file per route; `components/` is everything shared.
+
+`src/api/` is the boundary. Components call the functions in `sources.ts` and
+catch `ApiError`; nothing above that layer touches `fetch` or knows the header
+exists.
 
 ## The `/api` prefix is a dev-server fiction
 

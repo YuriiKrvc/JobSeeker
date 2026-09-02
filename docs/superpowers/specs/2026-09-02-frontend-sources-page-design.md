@@ -1,7 +1,7 @@
 # Frontend sources page: the first screen that talks to the API
 
 Date: 2026-09-02
-Status: proposed, awaiting review
+Status: implemented
 
 ## Problem
 
@@ -221,7 +221,9 @@ src/
     client.ts          request<T>(), ApiError, X-User-Id injection
     sources.ts         Source type + the five CRUD calls
   components/
-    SourceFormModal.tsx
+    sourceForm.ts       validation rules, CREATE_DEFAULTS, SourceFormValues,
+                         blankToNull, toInput, toFormValues, diffInput
+    SourceFormModal.tsx  the modal component itself
   pages/
     SourcesPage.tsx    rewritten
   vite-env.d.ts        ImportMetaEnv.VITE_USER_ID
@@ -231,6 +233,18 @@ src/
 `src/api/sources.ts` declares the `Source` interface itself. It is the frontend's
 own restatement of the wire shape, and if the API changes, this is the file that
 changes with it.
+
+**Deviation from the plan under review:** the pure helpers above — the
+per-field validation rule consts, `CREATE_DEFAULTS`, the `SourceFormValues`
+type, and the `blankToNull`/`toInput`/`toFormValues`/`diffInput` functions —
+were pulled out of `SourceFormModal.tsx` into the sibling module
+`sourceForm.ts` during review, rather than left inline as originally planned.
+`react-refresh/only-export-components` flags any export sharing a file with a
+component; moving them out means `SourceFormModal.tsx` exports only the
+component, and it gives a future OpenAPI-driven generator one file to
+replace instead of a component file to pick through. The design reasoning in
+this document — one const per field group, grouped for diffing against
+`sources.schema.ts` — is unchanged; only which file holds them moved.
 
 ## Testing
 
