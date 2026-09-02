@@ -137,7 +137,6 @@ const PostingsPage = () => {
         if (!cancelled) setSourcesLoading(false)
       }
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSources()
     return () => {
       cancelled = true
