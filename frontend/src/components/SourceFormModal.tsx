@@ -1,136 +1,21 @@
 import { Form, Input, InputNumber, Modal, Select, Switch, Typography } from 'antd'
-import type { FormRule } from 'antd'
 import { useEffect, useState } from 'react'
 
 import { ApiError } from '../api/client'
-import type { Source, SourceInput } from '../api/sources'
+import type { Source } from '../api/sources'
 import { createSource } from '../api/sources'
-
-/**
- * Validation rules transcribed from api/src/routes/sources.schema.ts.
- *
- * This duplicates the Zod schema by hand and can drift from it. The real fix
- * is generating these from the OpenAPI document the API publishes at /docs,
- * which is out of scope here. They are grouped into these consts rather than
- * written inline so that generator has a single seam to replace, and so a
- * reviewer can diff them against the schema in one place.
- *
- * `whitespace: true` is antd's spelling of the API's `/\S/` pattern: a
- * whitespace-only string is a blank in disguise and the API rejects it.
- */
-const NAME_RULES: FormRule[] = [
-  { required: true, whitespace: true, message: 'Name is required' },
-  { max: 200, message: 'At most 200 characters' },
-]
-
-const LISTING_URL_RULES: FormRule[] = [
-  { required: true, message: 'Listing URL is required' },
-  { type: 'url', message: 'Must be a valid http(s) URL' },
-  { max: 2000, message: 'At most 2000 characters' },
-  {
-    // antd's `type: 'url'` accepts ftp:// and others; the API takes only these
-    // two, and its published schema says merely "uri", so the check is here.
-    pattern: /^https?:\/\//,
-    message: 'Must start with http:// or https://',
-  },
-]
-
-const requiredSelector: FormRule[] = [
-  { required: true, whitespace: true, message: 'Required' },
-  { max: 500, message: 'At most 500 characters' },
-]
-
-const optionalSelector: FormRule[] = [
-  { whitespace: true, message: 'Cannot be only whitespace' },
-  { max: 500, message: 'At most 500 characters' },
-]
-
-const requiredAttr: FormRule[] = [
-  { required: true, whitespace: true, message: 'Required' },
-  { max: 100, message: 'At most 100 characters' },
-]
-
-const optionalAttr: FormRule[] = [
-  { whitespace: true, message: 'Cannot be only whitespace' },
-  { max: 100, message: 'At most 100 characters' },
-]
-
-const WORD_LIST_RULES: FormRule[] = [
-  {
-    validator: (_rule, value: string[] | undefined) => {
-      const words = value ?? []
-      if (words.length > 500) return Promise.reject(new Error('At most 500 words'))
-      if (words.some((word) => word.length > 100)) {
-        return Promise.reject(new Error('Each word is at most 100 characters'))
-      }
-      return Promise.resolve()
-    },
-  },
-]
-
-export type SourceFormValues = SourceInput
-
-/** The API's own defaults, so a created source matches what POST would apply. */
-const CREATE_DEFAULTS: SourceFormValues = {
-  name: '',
-  listingUrl: '',
-  enabled: true,
-  itemSelector: '',
-  titleSelector: '',
-  titleAttr: null,
-  detailUrlSelector: '',
-  detailUrlAttr: 'href',
-  descriptionSelector: '',
-  descriptionAttr: null,
-  companySelector: null,
-  companyAttr: null,
-  postedAtSelector: null,
-  postedAtAttr: null,
-  blockedTitleWords: [],
-  blockedDescriptionWords: [],
-  requestTimeoutMs: 10000,
-  detailDelayMs: 1000,
-  maxItemsPerRun: 100,
-}
-
-/**
- * An empty Input yields '' , which fails the API's `/\S/` pattern with a 400.
- * `null` is the documented way to say "this board has no company selector".
- */
-function blankToNull(value: string | null | undefined): string | null {
-  const trimmed = (value ?? '').trim()
-  return trimmed === '' ? null : trimmed
-}
-
-/**
- * Normalizes raw form state into exactly what the API accepts.
- *
- * `toInput` is part of this file's declared interface (see the task brief)
- * so its trim/null-mapping logic can be exercised independent of the modal;
- * splitting it into its own file to satisfy fast-refresh is not worth the
- * indirection for one pure function.
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export function toInput(values: SourceFormValues): SourceInput {
-  return {
-    ...values,
-    name: values.name.trim(),
-    listingUrl: values.listingUrl.trim(),
-    itemSelector: values.itemSelector.trim(),
-    titleSelector: values.titleSelector.trim(),
-    titleAttr: blankToNull(values.titleAttr),
-    detailUrlSelector: values.detailUrlSelector.trim(),
-    detailUrlAttr: values.detailUrlAttr.trim(),
-    descriptionSelector: values.descriptionSelector.trim(),
-    descriptionAttr: blankToNull(values.descriptionAttr),
-    companySelector: blankToNull(values.companySelector),
-    companyAttr: blankToNull(values.companyAttr),
-    postedAtSelector: blankToNull(values.postedAtSelector),
-    postedAtAttr: blankToNull(values.postedAtAttr),
-    blockedTitleWords: values.blockedTitleWords ?? [],
-    blockedDescriptionWords: values.blockedDescriptionWords ?? [],
-  }
-}
+import {
+  CREATE_DEFAULTS,
+  LISTING_URL_RULES,
+  NAME_RULES,
+  optionalAttr,
+  optionalSelector,
+  requiredAttr,
+  requiredSelector,
+  toInput,
+  WORD_LIST_RULES,
+} from './sourceForm'
+import type { SourceFormValues } from './sourceForm'
 
 export interface SourceFormModalProps {
   open: boolean
@@ -213,6 +98,7 @@ const SourceFormModal = ({
       onOk={() => void submit()}
       onCancel={onClose}
       confirmLoading={saving}
+      cancelButtonProps={{ disabled: saving }}
       destroyOnHidden
       width={720}
       styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
