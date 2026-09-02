@@ -3,15 +3,17 @@ import { useEffect, useState } from 'react'
 
 import { ApiError } from '../api/client'
 import type { Source } from '../api/sources'
-import { createSource } from '../api/sources'
+import { createSource, updateSource } from '../api/sources'
 import {
   CREATE_DEFAULTS,
+  diffInput,
   LISTING_URL_RULES,
   NAME_RULES,
   optionalAttr,
   optionalSelector,
   requiredAttr,
   requiredSelector,
+  toFormValues,
   toInput,
   WORD_LIST_RULES,
 } from './sourceForm'
@@ -40,10 +42,6 @@ const SourceFormModal = ({
   const [form] = Form.useForm<SourceFormValues>()
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  // `source` is unused until Task 3 adds edit mode behind this same prop; it
-  // stays in the signature now so that task only has to add behavior, not
-  // the parameter.
-  void source
 
   // The modal is destroyed on hide, but `form` is not, so its values have to
   // be reset explicitly whenever the modal is (re)opened.
@@ -55,9 +53,9 @@ const SourceFormModal = ({
       // no cascade for the rule to be guarding against here.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFailure(null)
-      form.setFieldsValue(CREATE_DEFAULTS)
+      form.setFieldsValue(source ? toFormValues(source) : CREATE_DEFAULTS)
     }
-  }, [open, form])
+  }, [open, source, form])
 
   const submit = async () => {
     let values: SourceFormValues
@@ -71,7 +69,14 @@ const SourceFormModal = ({
     setSaving(true)
     setFailure(null)
     try {
-      await createSource(toInput(values))
+      if (source) {
+        const patch = diffInput(toFormValues(source), toInput(values))
+        // The API rejects a PATCH with no keys, and sending one to earn a
+        // guaranteed 400 is pointless.
+        if (Object.keys(patch).length > 0) await updateSource(source.id, patch)
+      } else {
+        await createSource(toInput(values))
+      }
       onSaved()
       onClose()
     } catch (caught) {
@@ -93,8 +98,8 @@ const SourceFormModal = ({
   return (
     <Modal
       open={open}
-      title="Add source"
-      okText="Create"
+      title={source ? 'Edit source' : 'Add source'}
+      okText={source ? 'Save' : 'Create'}
       onOk={() => void submit()}
       onCancel={onClose}
       confirmLoading={saving}

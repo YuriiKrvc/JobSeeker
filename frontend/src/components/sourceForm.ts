@@ -1,6 +1,6 @@
 import type { FormRule } from 'antd'
 
-import type { SourceInput } from '../api/sources'
+import type { Source, SourceInput } from '../api/sources'
 
 /**
  * Validation rules transcribed from api/src/routes/sources.schema.ts.
@@ -79,6 +79,31 @@ export const WORD_LIST_RULES: FormRule[] = [
 
 export type SourceFormValues = SourceInput
 
+/** The editable subset of a source, in the shape the form holds. */
+export function toFormValues(source: Source): SourceFormValues {
+  return {
+    name: source.name,
+    listingUrl: source.listingUrl,
+    enabled: source.enabled,
+    itemSelector: source.itemSelector,
+    titleSelector: source.titleSelector,
+    titleAttr: source.titleAttr,
+    detailUrlSelector: source.detailUrlSelector,
+    detailUrlAttr: source.detailUrlAttr,
+    descriptionSelector: source.descriptionSelector,
+    descriptionAttr: source.descriptionAttr,
+    companySelector: source.companySelector,
+    companyAttr: source.companyAttr,
+    postedAtSelector: source.postedAtSelector,
+    postedAtAttr: source.postedAtAttr,
+    blockedTitleWords: source.blockedTitleWords,
+    blockedDescriptionWords: source.blockedDescriptionWords,
+    requestTimeoutMs: source.requestTimeoutMs,
+    detailDelayMs: source.detailDelayMs,
+    maxItemsPerRun: source.maxItemsPerRun,
+  }
+}
+
 /** The API's own defaults, so a created source matches what POST would apply. */
 export const CREATE_DEFAULTS: SourceFormValues = {
   name: '',
@@ -135,4 +160,35 @@ export function toInput(values: SourceFormValues): SourceInput {
     blockedTitleWords: values.blockedTitleWords ?? [],
     blockedDescriptionWords: values.blockedDescriptionWords ?? [],
   }
+}
+
+/** Value equality for the three shapes a SourceInput field can hold. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((item, index) => item === b[index])
+  }
+  return a === b
+}
+
+/**
+ * Only the changed keys, which is what PATCH means.
+ *
+ * This matters concretely: the ingestion service writes lastRunAt and
+ * lastError to the same row, and a scheduled run can land between opening the
+ * modal and saving it. Sending all 19 fields would be a last-write-wins
+ * overwrite of everything, including fields the user never looked at.
+ */
+export function diffInput(
+  before: SourceInput,
+  after: SourceInput,
+): Partial<SourceInput> {
+  const patch: Partial<SourceInput> = {}
+  for (const key of Object.keys(after) as (keyof SourceInput)[]) {
+    if (!sameValue(before[key], after[key])) {
+      // Each key is assigned from the same key of a value of the same type;
+      // TS cannot follow that through a dynamic key, hence the assertion.
+      patch[key] = after[key] as never
+    }
+  }
+  return patch
 }

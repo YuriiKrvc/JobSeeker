@@ -7,7 +7,9 @@ import type { Source } from '../api/sources'
 import { listSources } from '../api/sources'
 import SourceFormModal from '../components/SourceFormModal'
 
-const columns: TableProps<Source>['columns'] = [
+const buildColumns = (
+  onEdit: (source: Source) => void,
+): TableProps<Source>['columns'] => [
   {
     title: 'Name',
     dataIndex: 'name',
@@ -59,13 +61,34 @@ const columns: TableProps<Source>['columns'] = [
       return <Tag>Never run</Tag>
     },
   },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 120,
+    render: (_, source) => (
+      <Button type="link" onClick={() => onEdit(source)}>
+        Edit
+      </Button>
+    ),
+  },
 ]
 
 const SourcesPage = () => {
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Source | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+
+  const openCreate = () => {
+    setEditing(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (source: Source) => {
+    setEditing(source)
+    setModalOpen(true)
+  }
 
   // `load` is self-contained: it resets loading/error itself so it is safe
   // to call from anywhere (the mount effect, the Retry button, and later a
@@ -103,11 +126,7 @@ const SourcesPage = () => {
         <Typography.Title level={3} style={{ margin: 0 }}>
           Sources
         </Typography.Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setModalOpen(true)}
-        >
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           Add source
         </Button>
       </Flex>
@@ -126,7 +145,7 @@ const SourcesPage = () => {
       ) : (
         <Table<Source>
           rowKey="id"
-          columns={columns}
+          columns={buildColumns(openEdit)}
           dataSource={sources}
           loading={loading}
           pagination={false}
@@ -137,7 +156,7 @@ const SourcesPage = () => {
       )}
       <SourceFormModal
         open={modalOpen}
-        source={null}
+        source={editing}
         onClose={() => setModalOpen(false)}
         onSaved={() => void load()}
       />
