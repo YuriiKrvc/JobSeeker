@@ -75,35 +75,68 @@ const PostingsPage = () => {
   const [sourceId, setSourceId] = useState<string | undefined>(undefined)
   const [sources, setSources] = useState<Source[]>([])
   const [sourcesLoading, setSourcesLoading] = useState(true)
+  const [total, setTotal] = useState(0)
+  // How many rows the next request should skip. Advanced by the number of
+  // items actually returned, not by PAGE_SIZE, so a short page cannot leave a
+  // gap.
+  const [offset, setOffset] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   // Retry can be pressed while a load is already in flight, so two GETs can be
   // outstanding at once and can resolve in either order. `requestId` tags each
   // call so only the most recently *started* one may apply its result.
   const requestIdRef = useRef(0)
 
-  const load = useCallback(async () => {
-    const id = ++requestIdRef.current
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await listPostings({
-        sourceId,
-        limit: PAGE_SIZE,
-        offset: 0,
-      })
-      if (id === requestIdRef.current) setPostings(data.items)
-    } catch (caught) {
-      // An ApiError carries the API's own message; anything else is a network
-      // or programming fault and its message is the best we have.
-      if (id === requestIdRef.current) {
-        setError(
-          caught instanceof Error ? caught.message : 'Could not load postings',
-        )
+  const load = useCallback(
+    async (nextOffset: number, { append = false }: { append?: boolean } = {}) => {
+      const id = ++requestIdRef.current
+      // A failed "Load more" must not blank the rows already on screen, so
+      // appending drives its own button spinner and never touches `loading`.
+      if (append) setLoadingMore(true)
+      else setLoading(true)
+      setError(null)
+      try {
+        const data = await listPostings({
+          sourceId,
+          limit: PAGE_SIZE,
+          offset: nextOffset,
+        })
+        if (id !== requestIdRef.current) return
+        setTotal(data.total)
+        setOffset(nextOffset + data.items.length)
+        setPostings((current) => {
+          if (!append) return data.items
+          // Ingestion runs every 30 minutes and inserts at the top of
+          // `first_seen_at DESC`, so rows shift down between one request and
+          // the next and an offset window can re-serve rows already on
+          // screen. Without this, a background run makes duplicate rows
+          // appear mid-list. The converse — a shift large enough to skip a
+          // row entirely — is not fixable with offset paging; it needs cursor
+          // paging, and it is not worth an API change for a 30-minute
+          // schedule.
+          const seen = new Set(current.map((posting) => posting.id))
+          return [
+            ...current,
+            ...data.items.filter((posting) => !seen.has(posting.id)),
+          ]
+        })
+      } catch (caught) {
+        if (id === requestIdRef.current) {
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : 'Could not load postings',
+          )
+        }
+      } finally {
+        if (id === requestIdRef.current) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
       }
-    } finally {
-      if (id === requestIdRef.current) setLoading(false)
-    }
-  }, [sourceId])
+    },
+    [sourceId],
+  )
 
   // `load` resets loading/error before awaiting. On mount both are already at
   // those values, so React bails out of the re-render and nothing cascades —
@@ -114,7 +147,7 @@ const PostingsPage = () => {
   // ever learns to tell the difference.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load()
+    void load(0)
   }, [load])
 
   // One request serves both the filter's options and the Source column's
@@ -181,33 +214,45 @@ const PostingsPage = () => {
           title="Could not load postings"
           description={error}
           action={
-            <Button size="small" onClick={() => void load()}>
+            <Button size="small" onClick={() => void load(0)}>
               Retry
             </Button>
           }
         />
       ) : (
-        <Table<Posting>
-          rowKey="id"
-          columns={columns}
-          dataSource={postings}
-          loading={loading}
-          pagination={false}
-          locale={{
-            emptyText: (
-              <Empty
-                description={
-                  // With a filter on, an undifferentiated "No postings yet"
-                  // reads as "ingestion is broken". Naming the filter says
-                  // which of the two it is.
-                  sourceId
-                    ? 'No postings from this source'
-                    : 'No postings yet'
-                }
-              />
-            ),
-          }}
-        />
+        <>
+          <Table<Posting>
+            rowKey="id"
+            columns={columns}
+            dataSource={postings}
+            loading={loading}
+            pagination={false}
+            locale={{
+              emptyText: (
+                <Empty
+                  description={
+                    // With a filter on, an undifferentiated "No postings yet"
+                    // reads as "ingestion is broken". Naming the filter says
+                    // which of the two it is.
+                    sourceId
+                      ? 'No postings from this source'
+                      : 'No postings yet'
+                  }
+                />
+              ),
+            }}
+          />
+          {postings.length < total ? (
+            <Flex justify="center" style={{ marginTop: 16 }}>
+              <Button
+                loading={loadingMore}
+                onClick={() => void load(offset, { append: true })}
+              >
+                Load more
+              </Button>
+            </Flex>
+          ) : null}
+        </>
       )}
     </>
   )
