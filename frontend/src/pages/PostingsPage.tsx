@@ -213,13 +213,20 @@ const PostingsPage = () => {
           showIcon
           title="Could not load postings"
           description={error}
+          style={{ marginBottom: 16 }}
           action={
             <Button size="small" onClick={() => void load(0)}>
               Retry
             </Button>
           }
         />
-      ) : (
+      ) : null}
+      {/* The table stays mounted through an error so a failed "Load more"
+          cannot blank the rows already on screen — the Alert above reports
+          the failure instead. The one case it is hidden is a first load that
+          failed outright: with no rows, the table's empty text would claim
+          "No postings yet", which is a different and false statement. */}
+      {error && postings.length === 0 ? null : (
         <>
           <Table<Posting>
             rowKey="id"
