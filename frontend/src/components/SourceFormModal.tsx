@@ -1,4 +1,12 @@
-import { Form, Input, InputNumber, Modal, Select, Switch, Typography } from 'antd'
+import {
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Switch,
+  Typography,
+} from 'antd'
 import { useEffect, useState } from 'react'
 
 import { ApiError } from '../api/client'
@@ -87,7 +95,9 @@ const SourceFormModal = ({
         form.setFields([{ name: 'name', errors: [caught.message] }])
       } else {
         setFailure(
-          caught instanceof Error ? caught.message : 'Could not save the source',
+          caught instanceof Error
+            ? caught.message
+            : 'Could not save the source',
         )
       }
     } finally {
@@ -244,7 +254,12 @@ const SourceFormModal = ({
           name="requestTimeoutMs"
           rules={[{ required: true, type: 'number', min: 1000, max: 60000 }]}
         >
-          <InputNumber min={1000} max={60000} step={500} style={{ width: 200 }} />
+          <InputNumber
+            min={1000}
+            max={60000}
+            step={500}
+            style={{ width: 200 }}
+          />
         </Form.Item>
         <Form.Item
           label="Delay between detail fetches (ms)"

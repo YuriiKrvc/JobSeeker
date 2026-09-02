@@ -60,7 +60,8 @@ export const WORD_LIST_RULES: FormRule[] = [
   {
     validator: (_rule, value: string[] | undefined) => {
       const words = value ?? []
-      if (words.length > 500) return Promise.reject(new Error('At most 500 words'))
+      if (words.length > 500)
+        return Promise.reject(new Error('At most 500 words'))
       if (words.some((word) => word.length > 100)) {
         return Promise.reject(new Error('Each word is at most 100 characters'))
       }

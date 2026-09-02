@@ -147,7 +147,9 @@ const SourcesPage = () => {
       // An ApiError carries the API's own message; anything else is a network
       // or programming fault and its message is the best we have.
       if (id === requestIdRef.current) {
-        setError(caught instanceof Error ? caught.message : 'Could not load sources')
+        setError(
+          caught instanceof Error ? caught.message : 'Could not load sources',
+        )
       }
     } finally {
       if (id === requestIdRef.current) setLoading(false)
