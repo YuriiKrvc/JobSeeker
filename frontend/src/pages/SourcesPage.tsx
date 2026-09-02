@@ -13,7 +13,7 @@ import {
   Typography,
 } from 'antd'
 import type { TableProps } from 'antd'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Source } from '../api/sources'
 import { deleteSource, listSources, updateSource } from '../api/sources'
@@ -84,7 +84,11 @@ const buildColumns = (
     width: 160,
     render: (_, source) => (
       <>
-        <Button type="link" onClick={() => onEdit(source)}>
+        <Button
+          type="link"
+          disabled={pending.has(source.id)}
+          onClick={() => onEdit(source)}
+        >
           Edit
         </Button>
         <Popconfirm
@@ -94,7 +98,7 @@ const buildColumns = (
           okButtonProps={{ danger: true }}
           onConfirm={() => onDelete(source)}
         >
-          <Button type="link" danger>
+          <Button type="link" danger disabled={pending.has(source.id)}>
             Delete
           </Button>
         </Popconfirm>
@@ -120,21 +124,33 @@ const SourcesPage = () => {
     setModalOpen(true)
   }, [])
 
+  // Each row-level mutation (toggle, delete) awaits its own `load()`
+  // afterwards. Two mutations fired close together therefore have two
+  // `load()` calls in flight at once, and their GETs can resolve in either
+  // order — if the older one resolves last, it would overwrite the newer
+  // one's result and briefly show stale state. `requestId` tags each call so
+  // only the most recently *started* call is allowed to apply its result.
+  const requestIdRef = useRef(0)
+
   // `load` is self-contained: it resets loading/error itself so it is safe
   // to call from anywhere (the mount effect, the Retry button, and later a
   // post-mutation reload) without the caller having to remember to reset
   // first.
   const load = useCallback(async () => {
+    const id = ++requestIdRef.current
     setLoading(true)
     setError(null)
     try {
-      setSources(await listSources())
+      const data = await listSources()
+      if (id === requestIdRef.current) setSources(data)
     } catch (caught) {
       // An ApiError carries the API's own message; anything else is a network
       // or programming fault and its message is the best we have.
-      setError(caught instanceof Error ? caught.message : 'Could not load sources')
+      if (id === requestIdRef.current) {
+        setError(caught instanceof Error ? caught.message : 'Could not load sources')
+      }
     } finally {
-      setLoading(false)
+      if (id === requestIdRef.current) setLoading(false)
     }
   }, [])
 
@@ -190,7 +206,17 @@ const SourcesPage = () => {
     [withPending, message],
   )
 
+  // `toggle` and `remove` never read `requestIdRef` themselves — it's `load`,
+  // several closures downstream, that does — but `react-hooks/refs` walks the
+  // whole call graph and flags any function reachable from a ref read being
+  // passed to something invoked during render (this `useMemo` factory).
+  // `buildColumns` only stores these as event-handler closures (Switch
+  // `onChange`, Popconfirm `onConfirm`) and never calls them synchronously
+  // while building the column list, so the ref is never actually touched
+  // during render; the rule can't see that, so it's disabled per-line here
+  // rather than restructured.
   const columns = useMemo(
+    // eslint-disable-next-line react-hooks/refs
     () => buildColumns(openEdit, toggle, remove, pending),
     [openEdit, toggle, remove, pending],
   )
