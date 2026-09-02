@@ -1,9 +1,11 @@
-import { Alert, Button, Empty, Table, Tag, Tooltip, Typography } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import { Alert, Button, Empty, Flex, Table, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 
 import type { Source } from '../api/sources'
 import { listSources } from '../api/sources'
+import SourceFormModal from '../components/SourceFormModal'
 
 const columns: TableProps<Source>['columns'] = [
   {
@@ -63,6 +65,7 @@ const SourcesPage = () => {
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   // `load` is self-contained: it resets loading/error itself so it is safe
   // to call from anywhere (the mount effect, the Retry button, and later a
@@ -96,7 +99,18 @@ const SourcesPage = () => {
 
   return (
     <>
-      <Typography.Title level={3}>Sources</Typography.Title>
+      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          Sources
+        </Typography.Title>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setModalOpen(true)}
+        >
+          Add source
+        </Button>
+      </Flex>
       {error ? (
         <Alert
           type="error"
@@ -121,6 +135,12 @@ const SourcesPage = () => {
           }}
         />
       )}
+      <SourceFormModal
+        open={modalOpen}
+        source={null}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => void load()}
+      />
     </>
   )
 }
