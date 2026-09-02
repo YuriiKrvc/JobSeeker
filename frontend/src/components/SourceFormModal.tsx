@@ -130,7 +130,7 @@ const SourceFormModal = ({
       // cancelButtonProps only disables one of three exits. Without these,
       // a mask click or the X still closes the modal mid-save, and an
       // in-flight 409 then lands on a destroyed form with zero feedback.
-      maskClosable={!saving}
+      mask={{ closable: !saving }}
       closable={!saving}
       destroyOnHidden
       width={720}
