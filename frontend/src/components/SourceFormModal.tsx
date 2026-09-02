@@ -14,13 +14,16 @@ import type { Source } from '../api/sources'
 import { createSource, updateSource } from '../api/sources'
 import {
   CREATE_DEFAULTS,
+  DELAY_RULES,
   diffInput,
   LISTING_URL_RULES,
+  MAX_ITEMS_RULES,
   NAME_RULES,
   optionalAttr,
   optionalSelector,
   requiredAttr,
   requiredSelector,
+  TIMEOUT_RULES,
   toFormValues,
   toInput,
   WORD_LIST_RULES,
@@ -69,8 +72,14 @@ const SourceFormModal = ({
     let values: SourceFormValues
     try {
       values = await form.validateFields()
-    } catch {
-      // antd already marked the offending fields; there is nothing to add.
+    } catch (info) {
+      // antd already marked the offending field; but the body scrolls (19
+      // fields, maxHeight 70vh) and the field can be off-screen, so the only
+      // visible effect would otherwise be the spinner stopping. Scroll the
+      // first offending field into view so the error is actually seen.
+      const first = (info as { errorFields?: { name: (string | number)[] }[] })
+        .errorFields?.[0]
+      if (first) form.scrollToField(first.name, { block: 'center' })
       return
     }
 
@@ -93,6 +102,10 @@ const SourceFormModal = ({
       // user has to translate back into "which box do I fix".
       if (caught instanceof ApiError && caught.status === 409) {
         form.setFields([{ name: 'name', errors: [caught.message] }])
+        // `name` is the first field, but the body can already be scrolled
+        // past it (19 fields, maxHeight 70vh) — without this the error is
+        // invisible and pressing Create just looks like it did nothing.
+        form.scrollToField('name', { block: 'center' })
       } else {
         setFailure(
           caught instanceof Error
@@ -114,6 +127,11 @@ const SourceFormModal = ({
       onCancel={onClose}
       confirmLoading={saving}
       cancelButtonProps={{ disabled: saving }}
+      // cancelButtonProps only disables one of three exits. Without these,
+      // a mask click or the X still closes the modal mid-save, and an
+      // in-flight 409 then lands on a destroyed form with zero feedback.
+      maskClosable={!saving}
+      closable={!saving}
       destroyOnHidden
       width={720}
       styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
@@ -252,28 +270,35 @@ const SourceFormModal = ({
         <Form.Item
           label="Request timeout (ms)"
           name="requestTimeoutMs"
-          rules={[{ required: true, type: 'number', min: 1000, max: 60000 }]}
+          rules={TIMEOUT_RULES}
         >
           <InputNumber
             min={1000}
             max={60000}
             step={500}
+            precision={0}
             style={{ width: 200 }}
           />
         </Form.Item>
         <Form.Item
           label="Delay between detail fetches (ms)"
           name="detailDelayMs"
-          rules={[{ required: true, type: 'number', min: 0, max: 10000 }]}
+          rules={DELAY_RULES}
         >
-          <InputNumber min={0} max={10000} step={100} style={{ width: 200 }} />
+          <InputNumber
+            min={0}
+            max={10000}
+            step={100}
+            precision={0}
+            style={{ width: 200 }}
+          />
         </Form.Item>
         <Form.Item
           label="Max items per run"
           name="maxItemsPerRun"
-          rules={[{ required: true, type: 'number', min: 1, max: 500 }]}
+          rules={MAX_ITEMS_RULES}
         >
-          <InputNumber min={1} max={500} style={{ width: 200 }} />
+          <InputNumber min={1} max={500} precision={0} style={{ width: 200 }} />
         </Form.Item>
       </Form>
     </Modal>

@@ -203,6 +203,10 @@ If the diff is empty the modal closes without a request — the API rejects a
 - **The initial list failing** renders an antd `Alert` with the message and a
   retry button, in place of the table. A toast for a page that has no content
   behind it would leave an empty screen with no explanation once it faded.
+  `load()` owns this catch and is also what a post-mutation reload calls, so a
+  transient `GET` failure right after a successful create/edit/delete replaces
+  a populated table with this same Alert. This is accepted as a consequence of
+  reusing `load()` for both paths, not a bug — Retry recovers the list.
 
 `400` from a write is shown with the server's message, which is
 `zodMessage`-flattened and already names the offending path.
@@ -219,7 +223,7 @@ pressed. Toasts are for the row-level actions on the page behind it.
 src/
   api/
     client.ts          request<T>(), ApiError, X-User-Id injection
-    sources.ts         Source type + the five CRUD calls
+    sources.ts         Source type + the four CRUD calls
   components/
     sourceForm.ts       validation rules, CREATE_DEFAULTS, SourceFormValues,
                          blankToNull, toInput, toFormValues, diffInput

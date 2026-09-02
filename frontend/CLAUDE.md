@@ -62,7 +62,9 @@ Three version facts that will bite you:
 src/
   main.tsx                  ConfigProvider > App > BrowserRouter > routes
   api/                      client.ts (fetch, ApiError), sources.ts (CRUD calls)
-  components/AppLayout.tsx  Header, Sider menu, Content with <Outlet />
+  components/AppLayout.tsx      Header, Sider menu, Content with <Outlet />
+  components/SourceFormModal.tsx  create/edit modal for one source
+  components/sourceForm.ts        validation rules, defaults, toInput/toFormValues/diffInput
   pages/                    one component per route
 ```
 

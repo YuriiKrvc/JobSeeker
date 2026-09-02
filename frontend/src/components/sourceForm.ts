@@ -78,6 +78,36 @@ export const WORD_LIST_RULES: FormRule[] = [
   },
 ]
 
+export const TIMEOUT_RULES: FormRule[] = [
+  {
+    required: true,
+    type: 'number',
+    min: 1000,
+    max: 60000,
+    message: 'Request timeout is required and must be 1,000-60,000 ms',
+  },
+]
+
+export const DELAY_RULES: FormRule[] = [
+  {
+    required: true,
+    type: 'number',
+    min: 0,
+    max: 10000,
+    message: 'Delay is required and must be 0-10,000 ms',
+  },
+]
+
+export const MAX_ITEMS_RULES: FormRule[] = [
+  {
+    required: true,
+    type: 'number',
+    min: 1,
+    max: 500,
+    message: 'Max items per run is required and must be 1-500',
+  },
+]
+
 export type SourceFormValues = SourceInput
 
 /** The editable subset of a source, in the shape the form holds. */
