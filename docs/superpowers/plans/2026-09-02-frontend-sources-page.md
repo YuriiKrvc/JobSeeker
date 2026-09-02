@@ -55,8 +55,8 @@ Expected: `{"sources":[]}` (or a list, if you have already created some).
 |---|---|
 | `frontend/.env.example` | Documents `VITE_USER_ID`. Committed. |
 | `frontend/src/vite-env.d.ts` | Types `import.meta.env.VITE_USER_ID`. |
-| `frontend/src/api/client.ts` | `request<T>()`, `ApiError`. The only file that calls `fetch`. |
-| `frontend/src/api/sources.ts` | `Source`, `SourceInput`, and the four CRUD calls. |
+| `frontend/src/services/client.ts` | `request<T>()`, `ApiError`. The only file that calls `fetch`. |
+| `frontend/src/services/sources.ts` | `Source`, `SourceInput`, and the four CRUD calls. |
 | `frontend/src/components/SourceFormModal.tsx` | The create/edit form, its validation rules, and the PATCH diff. |
 | `frontend/src/pages/SourcesPage.tsx` | Table, load/error/empty state, and the row actions. |
 
@@ -69,8 +69,8 @@ Deliverable: `/sources` lists real sources from the API, with a loading state, a
 **Files:**
 - Create: `frontend/.env.example`
 - Create: `frontend/src/vite-env.d.ts`
-- Create: `frontend/src/api/client.ts`
-- Create: `frontend/src/api/sources.ts`
+- Create: `frontend/src/services/client.ts`
+- Create: `frontend/src/services/sources.ts`
 - Modify: `frontend/src/pages/SourcesPage.tsx` (replace all 9 lines)
 
 **Interfaces:**
@@ -122,7 +122,7 @@ interface ImportMeta {
 
 It is declared optional on purpose: the variable genuinely may be absent, and pretending otherwise would hide the one case the client has to handle.
 
-- [ ] **Step 4: Create `frontend/src/api/client.ts`**
+- [ ] **Step 4: Create `frontend/src/services/client.ts`**
 
 ```ts
 /**
@@ -203,7 +203,7 @@ async function toApiError(response: Response): Promise<ApiError> {
 }
 ```
 
-- [ ] **Step 5: Create `frontend/src/api/sources.ts`**
+- [ ] **Step 5: Create `frontend/src/services/sources.ts`**
 
 ```ts
 import { request } from './client'
@@ -294,9 +294,9 @@ import { Alert, Button, Empty, Table, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 
-import { ApiError } from '../api/client'
-import type { Source } from '../api/sources'
-import { listSources } from '../api/sources'
+import { ApiError } from '../services/client'
+import type { Source } from '../services/sources'
+import { listSources } from '../services/sources'
 
 const columns: TableProps<Source>['columns'] = [
   {
@@ -465,7 +465,7 @@ Expected: the `Alert` shows `Missing x-user-id header`. Restore the line and res
 
 ```bash
 cd /Users/ykravchenko/www/JobSeeker
-git add frontend/.env.example frontend/src/vite-env.d.ts frontend/src/api/client.ts frontend/src/api/sources.ts frontend/src/pages/SourcesPage.tsx
+git add frontend/.env.example frontend/src/vite-env.d.ts frontend/src/services/client.ts frontend/src/services/sources.ts frontend/src/pages/SourcesPage.tsx
 git commit -m "feat(frontend): list sources from the API"
 ```
 
@@ -480,7 +480,7 @@ Deliverable: an "Add source" button opens a modal covering all 19 editable field
 - Modify: `frontend/src/pages/SourcesPage.tsx`
 
 **Interfaces:**
-- Consumes: `Source`, `SourceInput`, `createSource` from `../api/sources`; `ApiError` from `../api/client`.
+- Consumes: `Source`, `SourceInput`, `createSource` from `../services/sources`; `ApiError` from `../services/client`.
 - Produces:
   - `interface SourceFormModalProps { open: boolean; source: Source | null; onClose: () => void; onSaved: () => void }` — `source: null` means create mode. Task 3 adds edit mode behind the same prop.
   - `type SourceFormValues = SourceInput` — an alias, so the form's raw state and the API's input have one type. Raw state may still hold `''` where the API needs `null`; `toInput()` is what closes that gap.
@@ -494,9 +494,9 @@ import { Form, Input, InputNumber, Modal, Select, Switch, Typography } from 'ant
 import type { FormRule } from 'antd'
 import { useEffect, useState } from 'react'
 
-import { ApiError } from '../api/client'
-import type { Source, SourceInput } from '../api/sources'
-import { createSource } from '../api/sources'
+import { ApiError } from '../services/client'
+import type { Source, SourceInput } from '../services/sources'
+import { createSource } from '../services/sources'
 
 /**
  * Validation rules transcribed from api/src/routes/sources.schema.ts.
@@ -1052,7 +1052,7 @@ onSaved()
 onClose()
 ```
 
-Add `updateSource` to the import from `../api/sources`.
+Add `updateSource` to the import from `../services/sources`.
 
 - [ ] **Step 4: Make the modal's title and button reflect the mode**
 
@@ -1157,7 +1157,7 @@ Deliverable: each row can be deleted behind a confirmation, and its `enabled` fl
 - Modify: `frontend/src/pages/SourcesPage.tsx`
 
 **Interfaces:**
-- Consumes: `deleteSource`, `updateSource` from `../api/sources`; `App` from `antd` for toasts.
+- Consumes: `deleteSource`, `updateSource` from `../services/sources`; `App` from `antd` for toasts.
 - Produces: nothing consumed elsewhere.
 
 - [ ] **Step 1: Add the toast handle and the pending-row state**
@@ -1168,7 +1168,7 @@ Add to the imports:
 
 ```tsx
 import { App, Popconfirm, Switch } from 'antd'
-import { deleteSource, updateSource } from '../api/sources'
+import { deleteSource, updateSource } from '../services/sources'
 ```
 
 Inside the component, directly below the `load` callback (both handlers call it):
@@ -1342,7 +1342,7 @@ It currently reads "Scaffold only… **Nothing calls the API yet** — there is 
 `/sources` is a working screen: it lists, creates, edits, deletes and toggles
 sources against the API. `/postings` is still a placeholder.
 
-`src/api/client.ts` is the only file that calls `fetch`. It owns the `/api`
+`src/services/client.ts` is the only file that calls `fetch`. It owns the `/api`
 prefix, the `X-User-Id` header (from `VITE_USER_ID` — copy `.env.example` to
 `.env.local`) and the `ApiError` every caller catches. See
 `docs/superpowers/specs/2026-09-02-frontend-sources-page-design.md`.
@@ -1353,7 +1353,7 @@ prefix, the `X-User-Id` header (from `VITE_USER_ID` — copy `.env.example` to
 Under the existing `## Layout` tree, add `api/` to the tree and this note beneath it:
 
 ```markdown
-`src/api/` is the boundary. Components call the functions in `sources.ts` and
+`src/services/` is the boundary. Components call the functions in `sources.ts` and
 catch `ApiError`; nothing above that layer touches `fetch` or knows the header
 exists.
 ```
@@ -1380,7 +1380,7 @@ grep -rn "fetch(" frontend/src --include=*.tsx --include=*.ts
 grep -rn "Nothing calls the API\|makes no API calls" CLAUDE.md frontend/CLAUDE.md
 ```
 
-Expected: the first prints exactly one hit, in `frontend/src/api/client.ts`. The second prints nothing.
+Expected: the first prints exactly one hit, in `frontend/src/services/client.ts`. The second prints nothing.
 
 - [ ] **Step 6: Final full check**
 

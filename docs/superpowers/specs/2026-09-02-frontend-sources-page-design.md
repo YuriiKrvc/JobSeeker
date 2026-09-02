@@ -84,7 +84,7 @@ special-casing is added for it beyond a comment in `.env.example`.
 
 ### One `request()` helper, one `ApiError`
 
-`src/api/client.ts` exports a single generic `request<T>(path, init)`. It
+`src/services/client.ts` exports a single generic `request<T>(path, init)`. It
 prefixes `/api`, sets `Content-Type: application/json` on bodied requests, sets
 `X-User-Id`, and:
 
@@ -234,7 +234,7 @@ src/
 .env.example
 ```
 
-`src/api/sources.ts` declares the `Source` interface itself. It is the frontend's
+`src/services/sources.ts` declares the `Source` interface itself. It is the frontend's
 own restatement of the wire shape, and if the API changes, this is the file that
 changes with it.
 
