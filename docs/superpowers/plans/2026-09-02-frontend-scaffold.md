@@ -6,7 +6,7 @@
 
 **Architecture:** Vite's `react-ts` template assembled by hand, then Ant Design 6 and `react-router` added on top. `main.tsx` composes `ConfigProvider → App → BrowserRouter → routes`; `AppLayout` renders an antd `Layout` with a `Menu` in the sider and `Outlet` in the content; two placeholder pages render `Empty`. The Vite dev server proxies `/api` to the Fastify API on port 3000, stripping the prefix, so no CORS is needed on either side.
 
-**Tech Stack:** Node 22, Vite 8, React 19, TypeScript, Ant Design 6, `@ant-design/icons` 6, react-router 8, ESLint 9 (flat), Prettier.
+**Tech Stack:** Node 22, Vite 7, React 19, TypeScript, Ant Design 6, `@ant-design/icons` 6, react-router 8, ESLint 9 (flat), Prettier.
 
 **Spec:** `docs/superpowers/specs/2026-09-02-frontend-scaffold-design.md`
 
@@ -14,6 +14,15 @@
 
 - **Exact dependency versions to install:** `antd@^6` (6.6.2 current), `@ant-design/icons@^6`, `react@^19`, `react-dom@^19`, `react-router@^8` (8.3.1 current).
 - **Correction to the spec:** the spec says `react-router ^7`. The current major is **8** (8.3.1) and its API for everything used here is identical. Install **8**. If a reviewer wants 7, that is a deliberate reversal, not a typo to fix silently.
+- **Deviation from the spec: Vite 7, not 8.** `npm create vite@latest` now
+  scaffolds an oxlint-based template, so `create-vite@8.3.0` was pinned instead
+  to get the ESLint 9 flat config this plan requires — and that template ships
+  a Vite 7 project (7.3.6 installed). Moving to Vite 8 would pull in
+  `@vitejs/plugin-react` v6, whose peer dependencies (`oxc-transform-react`,
+  `@rolldown/plugin-babel`, `babel-plugin-react-compiler`) are a different
+  bundler toolchain this plan never considered. Install **Vite 7**. If a
+  reviewer wants 8, that is a deliberate toolchain change, not a typo to fix
+  silently.
 - **One package, not two.** Import `BrowserRouter`, `Routes`, `Route`, `Outlet`, `Navigate`, `NavLink`, `useLocation` from `react-router`. Do **not** install or import `react-router-dom` — since v7 the single `react-router` package exports all of these. Verified against 8.3.1.
 - **antd 6 API rules that differ from v5 and from training data** (verified via `npx @ant-design/cli migrate 5 6`):
   - `Menu` takes an `items` array. **`Menu` children are deprecated** — never write `<Menu><Menu.Item/></Menu>`.

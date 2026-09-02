@@ -91,6 +91,8 @@ For the API, see `api/CLAUDE.md`; the short version:
 cd api && npm install && npm run dev
 ```
 
+For the frontend, see `frontend/CLAUDE.md`; the short version:
+
 ```bash
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```

@@ -143,3 +143,16 @@ to compile is not evidence it is current.
 
 Not in scope, and their absence is not a defect: any HTTP request, any test, any
 theme token, and any handling of `X-User-Id`.
+
+## Amendments
+
+**2026-09-02:** This design did not settle on a Vite major version, but the
+implementation plan that followed it named Vite 8, and the tree ships Vite
+7.3.6 instead. `npm create vite@latest` now scaffolds an oxlint-based
+template, so `create-vite@8.3.0` was pinned to get the ESLint 9 flat config
+this spec requires — and that template ships a Vite 7 project. Moving to Vite
+8 would require `@vitejs/plugin-react` v6, whose peer dependencies
+(`oxc-transform-react`, `@rolldown/plugin-babel`,
+`babel-plugin-react-compiler`) are a different bundler toolchain this design
+never considered. Treat Vite 7 as the settled version unless a future design
+explicitly revisits the toolchain.

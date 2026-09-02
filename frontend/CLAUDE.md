@@ -62,6 +62,11 @@ Two consequences:
 - **A deployment has to reproduce the rewrite** — a reverse proxy in front of
   both, or the same rule in whatever serves `dist/`. Nothing in the built
   assets carries it.
+- **A deployment also has to fall back to `index.html` for unknown paths.**
+  `main.tsx` uses `BrowserRouter`, so a direct hit on `/postings` is a request
+  the static server has never heard of. `npm run dev` and `npm run preview`
+  both serve that fallback for free, which is exactly why it will not surface
+  until deploy day.
 
 ## The API is the whole contract
 
