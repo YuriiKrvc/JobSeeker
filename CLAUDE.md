@@ -7,8 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `api/` has the sources CRUD API, the ingestion pipeline, and `GET /postings` in
 front of Postgres. Scraping runs only on request — there is no schedule yet.
 Its commands, layout, and layering rules live in **`api/CLAUDE.md`**.
-`frontend/` is still an empty directory; what is said about it here is a
-decision, not an observation.
+`frontend/` is scaffolded: Vite + React + TypeScript + Ant Design, an antd
+layout shell, and two placeholder routes. It makes no API calls yet. Its
+commands and conventions live in **`frontend/CLAUDE.md`**.
 
 Each subproject owns its own `CLAUDE.md`, and Claude Code loads them
 automatically when it touches files in that directory. There is no import
@@ -24,7 +25,7 @@ no data is shared between users. Self-hosted.
 ## Stack
 
 - `api/` — Node + TypeScript
-- `frontend/` — React + Vite + TypeScript
+- `frontend/` — React + Vite + TypeScript + Ant Design
 - Postgres for storage
 
 **Two independent projects, no shared source and no shared tooling.** Each owns
@@ -90,8 +91,6 @@ For the API, see `api/CLAUDE.md`; the short version:
 cd api && npm install && npm run dev
 ```
 
-The frontend does not exist yet:
-
 ```bash
-cd frontend && npm install && npm run dev   # intended shape, not yet real
+cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
